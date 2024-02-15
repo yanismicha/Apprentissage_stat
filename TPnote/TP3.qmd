@@ -857,16 +857,56 @@ ggplot(data, aes(x = genes, y = freq, fill = factor(clusters))) +
   theme_minimal()
 ```
 
-## 5: identification
+## 5: identification inter-espèce
+### Gène RTO
 ```{r}
 spectra$espèces <- meta$Espèces
 ACP <- PCA(spectra[spectra$Gènes=="RTO",],quali.sup = c("Gènes","espèces","cluster"),graph = FALSE)
 fviz_pca_ind(ACP,habillage = "espèces",addEllipses = TRUE)+
   ggtitle("Représentation ACP sur les composantes 1 et 2 du gène RTO")
+```
+Les observations des deux espèces s'entremêlent sur ce graphique ce qui ne permet pas une différenciation claire.  
+
+### Kmeans
+```{r}
+data <- spectra[spectra$Gènes=="RTO",]
+n <- ncol(spectra)
+kmeans<- kmeans(data[,-c(n,n-1,n-2)],2,nstart=10)
+data_plot <- data.frame(table(data$espèces,kmeans$cluster))
+data_plot
+names(data_plot) <-c("especes","clusters","freq") 
+ggplot(data_plot, aes(x = especes, y = freq, fill = factor(clusters))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "Espèces", y = "Quantité", fill = "Clusters", title = "Quantité par cluster en fonction des espèces: kmeans") +
+  theme_minimal()
+```
+Il n'est pas possible avec un simple kmeans de discriminer parfaitement les deux espèces, il faudrait sûrement transformer nos données pour les visualiser sur plus de dimensions pour permettre une meilleure discrimination.
+
+
+
+### Gène AUG
+```{r}
 ACP <- PCA(spectra[spectra$Gènes=="AUG",],quali.sup = c("Gènes","espèces","cluster"),graph = FALSE)
-fviz_pca_ind(ACP,habillage = "espèces",addEllipses = TRUE)+
+fviz_pca_ind(ACP,habillage = "espèces",addEllipses = TRUE,geom.ind = "point")+
   ggtitle("Représentation ACP sur les composantes 1 et 2 du gène AUG")
 ```
+On peut voir une nette séparation entre les observations des deux espèces.
+```{r}
+data <- spectra[spectra$Gènes=="AUG",]
+n <- ncol(spectra)
+kmeans<- kmeans(data[,-c(n,n-1,n-2)],2,nstart=10)
+data_plot <- data.frame(table(data$espèces,kmeans$cluster))
+data_plot
+names(data_plot) <-c("especes","clusters","freq") 
+ggplot(data_plot, aes(x = especes, y = freq, fill = factor(clusters))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "Espèces", y = "Quantité", fill = "Clusters", title = "Quantité par cluster en fonction des espèces: kmeans") +
+  theme_minimal()
+```
+On voit également qu'avec un simple kmeans, on arrive à facilement discriminer les deux types d'espèces.  
+
+
+
 
   
 
