@@ -1,5 +1,8 @@
 ---
 title: "TP3"
+author: 
+- Yanis Micha
+- Andrew Hardwick
 format: html
 ---
 
@@ -267,7 +270,7 @@ f1/f2
 
 # <u>Exercice 2 : Clustering et formes</u>
 
-## Chargement des jeux de donées
+## Chargement des jeux de données
 ```{r}
 Aggregation <- read.delim("datasets/Aggregation.txt", header=FALSE)
 spiral<- read.delim("datasets/3spiral.txt", header=FALSE,sep = " ")
@@ -386,7 +389,7 @@ centroide/medoide
 
 ```
 
-LA différence entre utilisation des k-centroïdes et des kmedoïdes reste assez mineur, le cluster 3 est séparé en deux avec les k-medoïdes mais n'est tout de même pas bien considéré.  
+LA différence entre utilisation des k-centroïdes et des kmedoïdes reste assez mineure, le cluster 3 est séparé en deux avec les k-medoïdes mais n'est tout de même pas bien considéré.  
 
 ### kmeans clustering spectral
 Afin de permettre au `kmeans`de mieux performer, nous allons transformer nos données en les segmentant à l'aide du clustering spectral. Il s'agit d'un algorithme de partitionnement des données reposant sur la théorie spectrale des graphes et l’algèbre linéaire.  
@@ -421,87 +424,73 @@ Données : Ensemble de points $S = \{s_1, \ldots, s_n\}$ dans $\mathbb{R}^l$, no
   
 
 
-On applique cet algorithme sur notre jeu de données,avec comme clusters $k=7$ et comme ecart-type<br>  $\sigma$=1: 
+On applique cet algorithme sur notre jeu de données,avec comme clusters $k=7$ et comme ecart-type<br>  $\sigma$=`c(0.5,0.8,1,2)`: 
 <details>
 <summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
 ```{r,eval=FALSE,echo=TRUE}
-euclidean_distance_squared <- function(si, sj) {
-  sum((si - sj)^2)
-}
-
 spectral_clust<- function(data,k,sigma){
-  n <- nrow(data)
-  A <- matrix(0,nrow = n,ncol=n)
-  for(i in 1:n){
-    for(j in 1:n){
-      if(i != j){
-        distance_squared <- euclidean_distance_squared(data[i, ], data[j, ])
-        A[i, j] <- exp(-distance_squared / (2 * sigma^2))
-      }
-    }
-  }
+  # 1: on construit la matrice adjacente qui qynthétise les relations entre tous les points de données du graphe.
+  A <- as.matrix(proxy::dist(data, function(si, sj) {exp(-sum((si - sj)^2) / (2 * sigma^2))}, auto_convert_data_frames = TRUE))
+  # 2.1:on Calcul la matrice D qui calcul la somme des liens
   diagonal <- rowSums(A)
   D <- diag(diagonal)
+  # 2.2: on calcul a matrice laplacienne
   L <- solve(sqrt(D))%*%A%*%solve(sqrt(D))
+  # 3.1: on recupère les valeurs et vecteurs propres
   eigen_decomp <- eigen(L,symmetric = TRUE)
+  # 3.2: on construit la matrice X
   X = eigen_decomp$vectors[,1:k]
+  # 4: on normalise la matrice X
   Y <- t(apply(X, 1, function(row) row / sqrt(sum(row^2))))
+  # 5: Application du kmeans sur la matrice Y
   kmeans_result <- kmeans(Y, centers = k)
   cluster_labels <- kmeans_result$cluster
-  
+  # on assigne nos points d'origine aux clusters
   original_data_clusters <- rep(NA, nrow(data))
-  
   for (i in 1:length(cluster_labels)) {
     original_data_clusters[which(cluster_labels == i)] <- i
   }
    return(original_data_clusters)
 }
  
-Aggregation$cluster <- factor(spectral_clust(Aggregation[,c(1,2)],7,1))
+Aggregation$cluster <- factor(spectral_clust(Aggregation[,c(1,2)],7,0.5))
 ggplot(Aggregation, aes(x = V1, y = V2, color = cluster)) +
   geom_point() +
   ggtitle("Kmeans avec clustering spectral")
 ```
 </details>
 ```{r,cache =TRUE}
-euclidean_distance_squared <- function(si, sj) {
-  sum((si - sj)^2)
-}
-
 spectral_clust<- function(data,k,sigma){
-  n <- nrow(data)
-  A <- matrix(0,nrow = n,ncol=n)
-  for(i in 1:n){
-    for(j in 1:n){
-      if(i != j){
-        distance_squared <- euclidean_distance_squared(data[i, ], data[j, ])
-        A[i, j] <- exp(-distance_squared / (2 * sigma^2))
-      }
-    }
-  }
+  # 1: on construit la matrice adjacente qui qynthétise les relations entre tous les points de données du graphe.
+  A <- as.matrix(proxy::dist(data, function(si, sj) {exp(-sum((si - sj)^2) / (2 * sigma^2))}, auto_convert_data_frames = TRUE))
+  # 2.1:on Calcul la matrice D qui calcul la somme des liens
   diagonal <- rowSums(A)
   D <- diag(diagonal)
+  # 2.2: on calcul a matrice laplacienne
   L <- solve(sqrt(D))%*%A%*%solve(sqrt(D))
+  # 3.1: on recupère les valeurs et vecteurs propres
   eigen_decomp <- eigen(L,symmetric = TRUE)
+  # 3.2: on construit la matrice X
   X = eigen_decomp$vectors[,1:k]
+  # 4: on normalise la matrice X
   Y <- t(apply(X, 1, function(row) row / sqrt(sum(row^2))))
+  # 5: Application du kmeans sur la matrice Y
   kmeans_result <- kmeans(Y, centers = k)
   cluster_labels <- kmeans_result$cluster
-  
+  # on assigne nos points d'origine aux clusters
   original_data_clusters <- rep(NA, nrow(data))
-  
   for (i in 1:length(cluster_labels)) {
     original_data_clusters[which(cluster_labels == i)] <- i
   }
    return(original_data_clusters)
 }
  
-Aggregation$cluster <- factor(spectral_clust(Aggregation[,c(1,2)],7,1))
+Aggregation$cluster <- factor(spectral_clust(Aggregation[,c(1,2)],7,0.5))
 ggplot(Aggregation, aes(x = V1, y = V2, color = cluster)) +
   geom_point() +
   ggtitle("Kmeans avec clustering spectral")
 ```
-Pour optimiser le resultat, il faudrait trouver le bon $\sigma$ qui permette une bonne répartition de nos données <br>(mais algorithme coûteux!).  
+Pour optimiser le resultat,  
 
 ## Flame
 ### CAH
@@ -696,32 +685,25 @@ ggplot(flame, aes(x = V1, y = V2, color = cluster)) +
 ```
 </details>
 ```{r,cache=TRUE}
-euclidean_distance_squared <- function(si, sj) {
-  sum((si - sj)^2)
-}
-
 spectral_clust<- function(data,k,sigma){
-  n <- nrow(data)
-  A <- matrix(0,nrow = n,ncol=n)
-  for(i in 1:n){
-    for(j in 1:n){
-      if(i != j){
-        distance_squared <- euclidean_distance_squared(data[i, ], data[j, ])
-        A[i, j] <- exp(-distance_squared / (2 * sigma^2))
-      }
-    }
-  }
+  # 1: on construit la matrice adjacente qui qynthétise les relations entre tous les points de données du graphe.
+  A <- as.matrix(proxy::dist(data, function(si, sj) {exp(-sum((si - sj)^2) / (2 * sigma^2))}, auto_convert_data_frames = TRUE))
+  # 2.1:on Calcul la matrice D qui calcul la somme des liens
   diagonal <- rowSums(A)
   D <- diag(diagonal)
+  # 2.2: on calcul a matrice laplacienne
   L <- solve(sqrt(D))%*%A%*%solve(sqrt(D))
+  # 3.1: on recupère les valeurs et vecteurs propres
   eigen_decomp <- eigen(L,symmetric = TRUE)
+  # 3.2: on construit la matrice X
   X = eigen_decomp$vectors[,1:k]
+  # 4: on normalise la matrice X
   Y <- t(apply(X, 1, function(row) row / sqrt(sum(row^2))))
+  # 5: Application du kmeans sur la matrice Y
   kmeans_result <- kmeans(Y, centers = k)
   cluster_labels <- kmeans_result$cluster
-  
+  # on assigne nos points d'origine aux clusters
   original_data_clusters <- rep(NA, nrow(data))
-  
   for (i in 1:length(cluster_labels)) {
     original_data_clusters[which(cluster_labels == i)] <- i
   }
@@ -745,32 +727,25 @@ ggplot(spiral, aes(x = V1, y = V2, color = cluster)) +
 ```
 </details>
 ```{r,cache=TRUE}
-euclidean_distance_squared <- function(si, sj) {
-  sum((si - sj)^2)
-}
-
 spectral_clust<- function(data,k,sigma){
-  n <- nrow(data)
-  A <- matrix(0,nrow = n,ncol=n)
-  for(i in 1:n){
-    for(j in 1:n){
-      if(i != j){
-        distance_squared <- euclidean_distance_squared(data[i, ], data[j, ])
-        A[i, j] <- exp(-distance_squared / (2 * sigma^2))
-      }
-    }
-  }
+  # 1: on construit la matrice adjacente qui qynthétise les relations entre tous les points de données du graphe.
+  A <- as.matrix(proxy::dist(data, function(si, sj) {exp(-sum((si - sj)^2) / (2 * sigma^2))}, auto_convert_data_frames = TRUE))
+  # 2.1:on Calcul la matrice D qui calcul la somme des liens
   diagonal <- rowSums(A)
   D <- diag(diagonal)
+  # 2.2: on calcul a matrice laplacienne
   L <- solve(sqrt(D))%*%A%*%solve(sqrt(D))
+  # 3.1: on recupère les valeurs et vecteurs propres
   eigen_decomp <- eigen(L,symmetric = TRUE)
+  # 3.2: on construit la matrice X
   X = eigen_decomp$vectors[,1:k]
+  # 4: on normalise la matrice X
   Y <- t(apply(X, 1, function(row) row / sqrt(sum(row^2))))
+  # 5: Application du kmeans sur la matrice Y
   kmeans_result <- kmeans(Y, centers = k)
   cluster_labels <- kmeans_result$cluster
-  
+  # on assigne nos points d'origine aux clusters
   original_data_clusters <- rep(NA, nrow(data))
-  
   for (i in 1:length(cluster_labels)) {
     original_data_clusters[which(cluster_labels == i)] <- i
   }
@@ -786,12 +761,10 @@ ggplot(spiral, aes(x = V1, y = V2, color = cluster)) +
 ```{r}
 spectra <- read.table("datasets/spectra.txt")
 meta <- read.table("datasets/meta-data.txt",header = TRUE)
-head(meta)
-head(spectra)
 names(meta) <- c("Espèces","Gènes")
 ```
 
-## 1: réprésentation des observations
+## 1: représentation des observations
 ```{r}
 ggplot(meta,aes(x = Gènes,fill= Espèces))+
   geom_bar()+
@@ -818,7 +791,8 @@ dim3 <- fviz_pca_ind(ACP_res,habillage = "Gènes",geom.ind = "point",addEllipses
 dim3
 ```
 On peut voir que sur la représentation sur l'axe 3 et 4, les points sont plus centrés autour des deux axes. On peut plus facilement visualiser des groupes entre les différents gènes.  
-Malgré cela, la variance représenté par les quatres premières composantes reste dérisoire (`r round(ACP_res$eig[4,3],0)`% de variance cumulée), on ne peut donc pas tirer grand chose de ces graphiques.  
+Malgré cela, la variance représenté par les quatres premières composantes reste dérisoire (`r round(ACP_res$eig[4,3],0)`% de variance cumulée), on ne peut donc pas tirer grand chose de ces graphiques.   
+
 ## 3: clustering hierarchique
 ```{r,eval=FALSE}
 vis_dat(spectra)
@@ -873,7 +847,7 @@ data <- spectra[spectra$Gènes=="RTO",]
 n <- ncol(spectra)
 kmeans<- kmeans(data[,-c(n,n-1,n-2)],2,nstart=10)
 data_plot <- data.frame(table(data$espèces,kmeans$cluster))
-data_plot
+kable(data_plot)
 names(data_plot) <-c("especes","clusters","freq") 
 ggplot(data_plot, aes(x = especes, y = freq, fill = factor(clusters))) +
   geom_bar(stat = "identity", position = "dodge") +
@@ -896,7 +870,7 @@ data <- spectra[spectra$Gènes=="AUG",]
 n <- ncol(spectra)
 kmeans<- kmeans(data[,-c(n,n-1,n-2)],2,nstart=10)
 data_plot <- data.frame(table(data$espèces,kmeans$cluster))
-data_plot
+kable(data_plot)
 names(data_plot) <-c("especes","clusters","freq") 
 ggplot(data_plot, aes(x = especes, y = freq, fill = factor(clusters))) +
   geom_bar(stat = "identity", position = "dodge") +
