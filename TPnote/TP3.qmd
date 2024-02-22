@@ -273,8 +273,12 @@ f1/f2
 ## Chargement des jeux de données
 ```{r}
 Aggregation <- read.delim("datasets/Aggregation.txt", header=FALSE)
+Aggregation<- Aggregation[order(Aggregation$V3), ]
 spiral<- read.delim("datasets/3spiral.txt", header=FALSE,sep = " ")
+spiral<- spiral[order(spiral$V3), ]
 flame <- read.delim("datasets/flame.txt",header = FALSE)
+flame<- flame[order(flame$V3), ]
+
 ```
 
 ## Aggregation
@@ -282,39 +286,69 @@ flame <- read.delim("datasets/flame.txt",header = FALSE)
 ### CAH
 AU vu du jeu de données on choisis k=7 clusters.  
 On commence par utiliser la classification ascendante hiérachique pour tenter de discriminer les points en fonction des clusters attendus.  
-Pour ce qui est des paramètres, après une pré-séléction intuituive et de l'essai-erreur, on choisis de garder la distance **euclidienne** et d'utiliser la méthode de **Ward** pour la production du dendogramme.  
-Nous obtenons les clusters suivants:
+Pour ce qui est des paramètres, après une pré-séléction intuituive et de l'essai-erreur, on choisis de garder la distance **euclidienne** et d'utiliser la méthode **single** pour la production du dendogramme.  
+Mathématiquement, cette méthode se traduit comme la distance $D(X,Y)$ entre les clusters $X$ et $Y$:
+$$
+D(X,Y) = \min_{x \in X, y \in Y} d(x,y)
+$$
+Nous obtenons alors les clusters suivants:
 <details>
 <summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
 ```{r,eval=FALSE,echo=TRUE}
-hclust <- hclust(dist(Aggregation),method = "ward.D")
+hclust <- hclust(dist(Aggregation),method = "single")
 fviz_dend(hclust,repel = TRUE,k = 7,cex = 0.5,color_labels_by_k = FALSE, rect = TRUE)+ 
 labs(title =  "Dendogramme")
 clusters <- cutree(hclust, k = 7)
 Aggregation$cluster <- clusters
 ggplot(Aggregation, aes(x = V1, y = V2, color = factor(cluster))) +
   geom_point()+
-  ggtitle("hclust")+
+  ggtitle("CLustering avec Hclust")+
   theme_light()
+tab <- table(Aggregation$cluster,Aggregation$V3)
+pourcentages <- numeric(length(unique(Aggregation$cluster))) # vecteur pour stocker les pourcentages
+for (i in unique(Aggregation$cluster)) {
+  cluster_total <- sum(tab[i, ]) # somme de la colonne correspondant au cluster i
+  points_bien_clusterises <- tab[i, i] # nombre de points bien clusterisés pour le cluster i
+  pourcentage <- points_bien_clusterises / cluster_total * 100 # calcul du pourcentage
+  pourcentages[i] <- pourcentage # stockage du pourcentage dans le vecteur
+}
+cat("Pourcentage de points bien catégorisés pour chaque cluster:\n")
+for(i in 1:length(pourcentages)){
+  cat(paste("Dans le cluster",i,":",pourcentages[i],"\n"))
+}
 ```
 </details>
 ```{r,cache =TRUE}
-hclust <- hclust(dist(Aggregation),method = "ward.D")
+hclust <- hclust(dist(Aggregation),method = "single")
 fviz_dend(hclust,repel = TRUE,k = 7,cex = 0.5,color_labels_by_k = FALSE, rect = TRUE)+ 
 labs(title =  "Dendogramme")
 clusters <- cutree(hclust, k = 7)
 Aggregation$cluster <- clusters
 ggplot(Aggregation, aes(x = V1, y = V2, color = factor(cluster))) +
   geom_point()+
-  ggtitle("hclust")+
+  ggtitle("CLustering avec Hclust")+
   theme_light()
-```
 
-L'algorithme arrive à retrouver les clusters les plus évidents mais se trompe sur les clusters 2/3/4. 
+tab <- table(Aggregation$cluster,Aggregation$V3)
+pourcentages <- numeric(length(unique(Aggregation$cluster)))
+for (i in unique(Aggregation$cluster)) {
+  cluster_total <- sum(tab[i, ]) # somme de la colonne correspondant au cluster i
+  points_bien_clusterises <- tab[i, i] # nombre de points bien clusterisés pour le cluster i
+  pourcentage <- points_bien_clusterises / cluster_total * 100 # calcul du pourcentage
+  pourcentages[i] <- pourcentage # stockage du pourcentage dans le vecteur
+}
+cat("Pourcentage de points bien catégorisés pour chaque cluster:\n")
+for(i in 1:length(pourcentages)){
+  cat(paste("Dans le cluster",i,":",pourcentages[i],"\n"))
+}
+```
+Avec cette méthode, l'ensemble des points est correctement catégorisé.  
+
+ 
 
 ### Kmeans: Kcentroïdes vs Kmedoïdes
 
-Pour tenter de résoudre cette erreur de clustering avec les kmeans, nous comparons les Kcentroïdes vs Kmedoïdes avec une intuition qu'avec les Kcentroïdes, le problème ne sera pas résolu.  
+Nous comparons les Kcentroïdes vs Kmedoïdes avec une intuition qu'avec les Kcentroïdes, un problème inhérent à son algorithme risque de se passer sur les deux clusters du bas.  
 Pour les paramètres, nous gardons bien evidemment k=7, et nous utilisons nstart=10 pour avoir une stabilité du résultat final:
 <details>
 <summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
@@ -329,11 +363,11 @@ centroide <-ggplot(Aggregation, aes(x = V1, y = V2, color = cluster)) +
              color = "darkred",size = 6,shape= 15)+
   geom_text(data = data.frame(clust$centers),
             aes(x = V1, y = V2),
-            label = 1:7,
+            label = unique(clust$cluster),
             color = "white", size = 4) +
   ggtitle("Kmeans avec centroïdes:")+
   theme_light()
-  
+
   
 clust<- pam(Aggregation,7,stand = TRUE,nstart = 10)  
 Aggregation$cluster <- factor(clust$clustering)
@@ -350,7 +384,6 @@ medoide <- ggplot(Aggregation, aes(x = V1, y = V2, color = cluster)) +
   theme_light()
 
 centroide/medoide
-
 ```
 </details>
 ```{r,cache =TRUE}
@@ -369,6 +402,7 @@ centroide <-ggplot(Aggregation, aes(x = V1, y = V2, color = cluster)) +
   ggtitle("Kmeans avec centroïdes:")+
   theme_light()
   
+
   
 clust<- pam(Aggregation,7,stand = TRUE,nstart = 10)  
 Aggregation$cluster <- factor(clust$clustering)
@@ -384,8 +418,8 @@ medoide <- ggplot(Aggregation, aes(x = V1, y = V2, color = cluster)) +
   ggtitle("Kmeans avec medoïdes:")+
   theme_light()
 
-centroide/medoide
 
+centroide/medoide
 
 ```
 
@@ -490,14 +524,15 @@ ggplot(Aggregation, aes(x = V1, y = V2, color = cluster)) +
   geom_point() +
   ggtitle("Kmeans avec clustering spectral")
 ```
-Pour optimiser le resultat,  
+Cet algorithme plus complexe serait très utile pour du clustering plus poussé. Pour ce jeu de données, on retiendra la simplicité avec le `CAH` avec comme methode linkage `single`qui fonctionne très bien!  
+
 
 ## Flame
 ### CAH
 <details>
 <summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
 ```{r,eval=FALSE,echo=TRUE}
-hclust <- hclust(dist(flame),method = "ward.D")
+hclust <- hclust(dist(flame),method = "single")
 fviz_dend(hclust,repel = TRUE,k = 2,cex = 0.5,color_labels_by_k = FALSE, rect = TRUE)+ 
 labs(title =  "Dendogramme")
 clusters <- cutree(hclust, k = 2)
@@ -509,16 +544,30 @@ ggplot(flame, aes(x = V1, y = V2, color = factor(cluster))) +
 ```
 </details>
 ```{r,cache=TRUE}
-hclust <- hclust(dist(flame),method = "ward.D")
-fviz_dend(hclust,repel = TRUE,k = 2,cex = 0.5,color_labels_by_k = FALSE, rect = TRUE)+ 
-labs(title =  "Dendogramme")
+hclust <- flashClust::flashClust(dist(flame),method = "ward")
+#fviz_dend(hclust,repel = TRUE,k = 2,cex = 0.5,color_labels_by_k = FALSE, rect = TRUE)+ 
+#labs(title =  "Dendogramme")
 clusters <- cutree(hclust, k = 2)
 flame$cluster <- clusters
 ggplot(flame, aes(x = V1, y = V2, color = factor(cluster))) +
   geom_point()+
   ggtitle("hclust")+
   theme_light()
+tab <- table(flame$cluster,flame$V3)
+pourcentages <- numeric(length(unique(flame$cluster)))
+for (i in unique(flame$cluster)) {
+  cluster_total <- sum(tab[,i ])# somme de la colonne correspondant au cluster i
+  points_bien_clusterises <- tab[i, i] # nombre de points bien clusterisés pour le cluster i
+  pourcentage <- points_bien_clusterises / cluster_total * 100 # calcul du pourcentage
+  pourcentages[i] <- pourcentage # stockage du pourcentage dans le vecteur
+}
+cat("Pourcentage de points bien catégorisés pour chaque cluster:\n")
+for(i in 1:length(pourcentages)){
+  cat(paste("Dans le cluster",i,":",round(pourcentages[i],2),"\n"))
+}
 ```
+L'algorithme n'arrive pas à bien trouver les deux clusters.  On peut tenter de passer par des kmeans et des kmedoides en espérant un meilleur résultat.  
+
 
 ### Kmeans
 <details>
@@ -588,6 +637,8 @@ centroide/medoide
 
 
 ```
+
+Très peu de différences au niveau des résultats de clustering entre les deux algorithmes pour ce jeu de donnée. On peut se tourner vers des techniques un peu plus complexe comme le DBscan ou le spectralclustering.  
 
 ### DBscan
 DBSCAN (Density-Based Spatial Clustering of Applications with Noise) est un algorithme de clustering qui identifie des zones de densité élevée dans l'espace des données, délimitant ainsi des clusters de formes arbitraires, tout en distinguant les points isolés comme du bruit.  
@@ -716,6 +767,63 @@ ggplot(flame, aes(x = V1, y = V2, color = cluster)) +
 ```
 
 ## Spiral
+### CAH
+On fait le même choix que pour le jeu de données `Aggregation` en prenant comme distance la distance euclidienne et comme méthode de linkage `single`:
+<details>
+<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+```{r,eval=FALSE,echo=TRUE}
+hclust <- hclust(dist(spiral),method = "single")
+fviz_dend(hclust,repel = TRUE,k = 7,cex = 0.5,color_labels_by_k = FALSE, rect = TRUE)+ 
+labs(title =  "Dendogramme")
+clusters <- cutree(hclust, k = 7)
+Aggregation$cluster <- clusters
+ggplot(Aggregation, aes(x = V1, y = V2, color = factor(cluster))) +
+  geom_point()+
+  ggtitle("CLustering avec Hclust")+
+  theme_light()
+tab <- table(Aggregation$cluster,Aggregation$V3)
+pourcentages <- numeric(length(unique(Aggregation$cluster))) # vecteur pour stocker les pourcentages
+for (i in unique(Aggregation$cluster)) {
+  cluster_total <- sum(tab[i, ]) # somme de la colonne correspondant au cluster i
+  points_bien_clusterises <- tab[i, i] # nombre de points bien clusterisés pour le cluster i
+  pourcentage <- points_bien_clusterises / cluster_total * 100 # calcul du pourcentage
+  pourcentages[i] <- pourcentage # stockage du pourcentage dans le vecteur
+}
+cat("Pourcentage de points bien catégorisés pour chaque cluster:\n")
+for(i in 1:length(pourcentages)){
+  cat(paste("Dans le cluster",i,":",pourcentages[i],"\n"))
+}
+```
+</details>
+
+```{r,cache=TRUE}
+hclust <- hclust(dist(spiral),method = "single")
+fviz_dend(hclust,repel = TRUE,k = 7,cex = 0.5,color_labels_by_k = FALSE, rect = TRUE)+ 
+labs(title =  "Dendogramme")
+clusters <- cutree(hclust, k = 3)
+spiral$cluster <- clusters
+ggplot(spiral, aes(x = V1, y = V2, color = factor(cluster))) +
+  geom_point()+
+  ggtitle("CLustering avec Hclust")+
+  theme_light()
+tab <- table(spiral$cluster,spiral$V3)
+pourcentages <- numeric(length(unique(spiral$cluster))) # vecteur pour stocker les pourcentages
+for (i in unique(spiral$cluster)) {
+  cluster_total <- sum(tab[i, ]) # somme de la colonne correspondant au cluster i
+  points_bien_clusterises <- tab[i, i] # nombre de points bien clusterisés pour le cluster i
+  pourcentage <- points_bien_clusterises / cluster_total * 100 # calcul du pourcentage
+  pourcentages[i] <- pourcentage # stockage du pourcentage dans le vecteur
+}
+cat("Pourcentage de points bien catégorisés pour chaque cluster:\n")
+for(i in 1:length(pourcentages)){
+  cat(paste("Dans le cluster",i,":",pourcentages[i],"\n"))
+}
+
+```
+
+L'algorithme arrive parfaitement a retrouver les bons clusters.  On peut tout de même par curiosité tester le spectral clustering pour tenter de faire fonctionner les kmeans.   
+
+
 ### Kmeans avec clustering spectral
 <details>
 <summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
@@ -726,7 +834,7 @@ ggplot(spiral, aes(x = V1, y = V2, color = cluster)) +
   geom_point()
 ```
 </details>
-```{r,cache=TRUE}
+```{r}
 spectral_clust<- function(data,k,sigma){
   # 1: on construit la matrice adjacente qui qynthétise les relations entre tous les points de données du graphe.
   A <- as.matrix(proxy::dist(data, function(si, sj) {exp(-sum((si - sj)^2) / (2 * sigma^2))}, auto_convert_data_frames = TRUE))
@@ -765,7 +873,17 @@ names(meta) <- c("Espèces","Gènes")
 ```
 
 ## 1: représentation des observations
-```{r}
+<details>
+<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+```{r,eval=FALSE,echo=TRUE}
+ggplot(meta,aes(x = Gènes,fill= Espèces))+
+  geom_bar()+
+  labs(
+    y = "Quantité"
+  )
+```
+</details>
+```{r,cache=TRUE}
 ggplot(meta,aes(x = Gènes,fill= Espèces))+
   geom_bar()+
   labs(
@@ -773,8 +891,11 @@ ggplot(meta,aes(x = Gènes,fill= Espèces))+
   )
 ```
 
+
 ## 2: ACP 
-```{r}
+<details>
+<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+```{r,eval=FALSE,echo=TRUE}
 spectra$Gènes<- meta$Gènes
 ACP_res <- PCA(spectra,graph = FALSE,quali.sup = "Gènes")
 dim1 <- fviz_pca_ind(ACP_res,habillage = "Gènes",geom.ind = "point",addEllipses = TRUE) +
@@ -782,14 +903,28 @@ dim1 <- fviz_pca_ind(ACP_res,habillage = "Gènes",geom.ind = "point",addEllipses
     title = "Représention de l'ACP sur l'axe 1 et 2"
   )
 dim1
-```
-```{r}
 dim3 <- fviz_pca_ind(ACP_res,habillage = "Gènes",geom.ind = "point",addEllipses = TRUE,axes = 3:4) +
   labs(
     title = "Représention de l'ACP sur l'axe 3 et 4"
   )
 dim3
 ```
+</details>
+```{r,cache=TRUE}
+spectra$Gènes<- meta$Gènes
+ACP_res <- PCA(spectra,graph = FALSE,quali.sup = "Gènes")
+dim1 <- fviz_pca_ind(ACP_res,habillage = "Gènes",geom.ind = "point",addEllipses = TRUE) +
+  labs(
+    title = "Représention de l'ACP sur l'axe 1 et 2"
+  )
+dim1
+dim3 <- fviz_pca_ind(ACP_res,habillage = "Gènes",geom.ind = "point",addEllipses = TRUE,axes = 3:4) +
+  labs(
+    title = "Représention de l'ACP sur l'axe 3 et 4"
+  )
+dim3
+```
+
 On peut voir que sur la représentation sur l'axe 3 et 4, les points sont plus centrés autour des deux axes. On peut plus facilement visualiser des groupes entre les différents gènes.  
 Malgré cela, la variance représenté par les quatres premières composantes reste dérisoire (`r round(ACP_res$eig[4,3],0)`% de variance cumulée), on ne peut donc pas tirer grand chose de ces graphiques.   
 
@@ -798,7 +933,9 @@ Malgré cela, la variance représenté par les quatres premières composantes re
 vis_dat(spectra)
 ```
 
-```{r}
+<details>
+<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+```{r,eval=FALSE,echo=TRUE}
 hclust <- hclust(dist(spectra),method = "ward.D")
 fviz_dend(hclust,repel = TRUE,k = 8,cex = 0.5,color_labels_by_k = FALSE, rect = TRUE)+ 
 labs(title =  "Dendogramme")
@@ -812,11 +949,44 @@ ggplot(data, aes(x = genes, y = freq, fill = factor(clusters))) +
   labs(x = "Gènes", y = "Quantité", fill = "Clusters", title = "Quantité par cluster en fonction des gènes:CAH") +
   theme_minimal()
 ```
+</details>
+```{r,cache=TRUE}
+hclust <- hclust(dist(spectra),method = "ward.D")
+fviz_dend(hclust,repel = TRUE,k = 8,cex = 0.5,color_labels_by_k = FALSE, rect = TRUE)+ 
+labs(title =  "Dendogramme")
+clusters <- cutree(hclust, k = 8)
+spectra$cluster <- clusters
+tab <- table(clusters,meta$Gènes)
+data <- as.data.frame.table(tab)
+names(data) <-c("clusters","genes","freq") 
+ggplot(data, aes(x = genes, y = freq, fill = factor(clusters))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "Gènes", y = "Quantité", fill = "Clusters", title = "Quantité par cluster en fonction des gènes:CAH") +
+  theme_minimal()
+```
+
 La stratégie "Ward" semble bien adapté et réussit à bien discriminer les clusters par gène (mis à part pour le gène `AUG` et `NYV`).  
 Ces résultats sont tout à fait cohérent avec l'analyse en composantes principales sur les deux premières dimensions.  
 
 ## Kmeans
-```{r}
+<details>
+<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+```{r,eval=FALSE,echo=TRUE}
+kmeans <- kmeans(spectra[,-c(ncol(spectra),ncol(spectra)-1)],centers = 8,nstart=10)
+spectra$cluster <- as.character(kmeans$cluster)
+cont <- table(meta$Gènes,spectra$cluster)
+kable(cont)
+
+# Visualisation des clusters
+data <- as.data.frame.table(cont)
+names(data) <-c("clusters","genes","freq") 
+ggplot(data, aes(x = genes, y = freq, fill = factor(clusters))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "Gènes", y = "Quantité", fill = "Clusters", title = "Quantité par cluster en fonction des gènes: kmeans") +
+  theme_minimal()
+```
+</details>
+```{r,cache =TRUE}
 kmeans <- kmeans(spectra[,-c(ncol(spectra),ncol(spectra)-1)],centers = 8,nstart=10)
 spectra$cluster <- as.character(kmeans$cluster)
 cont <- table(meta$Gènes,spectra$cluster)
@@ -831,17 +1001,43 @@ ggplot(data, aes(x = genes, y = freq, fill = factor(clusters))) +
   theme_minimal()
 ```
 
+
 ## 5: identification inter-espèce
 ### Gène RTO
+<details>
+<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+```{r,echo=TRUE,eval=FALSE}
+spectra$espèces <- meta$Espèces
+ACP <- PCA(spectra[spectra$Gènes=="RTO",],quali.sup = c("Gènes","espèces","cluster"),graph = FALSE)
+fviz_pca_ind(ACP,habillage = "espèces",addEllipses = TRUE)+
+  ggtitle("Représentation ACP sur les composantes 1 et 2 du gène RTO")
+```
+</details>
 ```{r}
 spectra$espèces <- meta$Espèces
 ACP <- PCA(spectra[spectra$Gènes=="RTO",],quali.sup = c("Gènes","espèces","cluster"),graph = FALSE)
 fviz_pca_ind(ACP,habillage = "espèces",addEllipses = TRUE)+
   ggtitle("Représentation ACP sur les composantes 1 et 2 du gène RTO")
 ```
+
 Les observations des deux espèces s'entremêlent sur ce graphique ce qui ne permet pas une différenciation claire.  
 
 ### Kmeans
+<details>
+<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+```{r,eval=FALSE,echo=TRUE}
+data <- spectra[spectra$Gènes=="RTO",]
+n <- ncol(spectra)
+kmeans<- kmeans(data[,-c(n,n-1,n-2)],2,nstart=10)
+data_plot <- data.frame(table(data$espèces,kmeans$cluster))
+kable(data_plot)
+names(data_plot) <-c("especes","clusters","freq") 
+ggplot(data_plot, aes(x = especes, y = freq, fill = factor(clusters))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "Espèces", y = "Quantité", fill = "Clusters", title = "Quantité par cluster en fonction des espèces: kmeans") +
+  theme_minimal()
+```
+</details>
 ```{r}
 data <- spectra[spectra$Gènes=="RTO",]
 n <- ncol(spectra)
@@ -854,18 +1050,31 @@ ggplot(data_plot, aes(x = especes, y = freq, fill = factor(clusters))) +
   labs(x = "Espèces", y = "Quantité", fill = "Clusters", title = "Quantité par cluster en fonction des espèces: kmeans") +
   theme_minimal()
 ```
+
 Il n'est pas possible avec un simple kmeans de discriminer parfaitement les deux espèces, il faudrait sûrement transformer nos données pour les visualiser sur plus de dimensions pour permettre une meilleure discrimination.
 
 
 
 ### Gène AUG
-```{r}
+<details>
+<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+```{r,eval=FALSE,echo=TRUE}
 ACP <- PCA(spectra[spectra$Gènes=="AUG",],quali.sup = c("Gènes","espèces","cluster"),graph = FALSE)
 fviz_pca_ind(ACP,habillage = "espèces",addEllipses = TRUE,geom.ind = "point")+
   ggtitle("Représentation ACP sur les composantes 1 et 2 du gène AUG")
 ```
-On peut voir une nette séparation entre les observations des deux espèces.
-```{r}
+</details>
+```{r,cache=TRUE}
+ACP <- PCA(spectra[spectra$Gènes=="AUG",],quali.sup = c("Gènes","espèces","cluster"),graph = FALSE)
+fviz_pca_ind(ACP,habillage = "espèces",addEllipses = TRUE,geom.ind = "point")+
+  ggtitle("Représentation ACP sur les composantes 1 et 2 du gène AUG")
+```
+
+On peut voir une nette séparation entre les observations des deux espèces.  
+
+<details>
+<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+```{r,eval=FALSE,echo=TRUE}
 data <- spectra[spectra$Gènes=="AUG",]
 n <- ncol(spectra)
 kmeans<- kmeans(data[,-c(n,n-1,n-2)],2,nstart=10)
@@ -877,6 +1086,20 @@ ggplot(data_plot, aes(x = especes, y = freq, fill = factor(clusters))) +
   labs(x = "Espèces", y = "Quantité", fill = "Clusters", title = "Quantité par cluster en fonction des espèces: kmeans") +
   theme_minimal()
 ```
+</details>
+```{r,cache=TRUE}
+data <- spectra[spectra$Gènes=="AUG",]
+n <- ncol(spectra)
+kmeans<- kmeans(data[,-c(n,n-1,n-2)],2,nstart=10)
+data_plot <- data.frame(table(data$espèces,kmeans$cluster))
+kable(data_plot)
+names(data_plot) <-c("especes","clusters","freq") 
+ggplot(data_plot, aes(x = especes, y = freq, fill = factor(clusters))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "Espèces", y = "Quantité", fill = "Clusters", title = "Quantité par cluster en fonction des espèces: kmeans") +
+  theme_minimal()
+```
+
 On voit également qu'avec un simple kmeans, on arrive à facilement discriminer les deux types d'espèces.  
 
 
