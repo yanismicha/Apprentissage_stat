@@ -3,7 +3,15 @@ title: "TP3"
 author: 
 - Yanis Micha
 - Andrew Hardwick
-format: html
+format:
+ bookup-html+dark:
+    toc: true
+    toc-expand: 1
+    toc-depth: 3
+    toc-location: 'left'
+    toc-title: 'Sommaire'
+    number-sections: true
+    highlight-style: pygments
 ---
 
 ```{r,echo=FALSE,message=FALSE,warning=FALSE}
@@ -21,7 +29,9 @@ require(FNN)
 require(visdat)
 ```
 
-<a href="https://github.com/yanismicha" class="btn btn-primary">Lien vers le git</a>
+<div class="alert alert-secondary" role="alert"> <a href="https://github.com/yanismicha/Apprentissage_stat" class="alert-link" style = "color:  #72afd2">Lien vers notre git</a>. Vous retrouverez l'ensemble des projets de cet UE sur ce git.
+</div>
+
 
 # <u>Exercice 1 : k-means</u>
 
@@ -284,7 +294,7 @@ flame<- flame[order(flame$V3), ]
 ## Aggregation
 
 ### CAH
-AU vu du jeu de données on choisis k=7 clusters.  
+Au vu du jeu de données on choisis k=7 clusters.  
 On commence par utiliser la classification ascendante hiérachique pour tenter de discriminer les points en fonction des clusters attendus.  
 Pour ce qui est des paramètres, après une pré-séléction intuituive et de l'essai-erreur, on choisis de garder la distance **euclidienne** et d'utiliser la méthode **single** pour la production du dendogramme.  
 Mathématiquement, cette méthode se traduit comme la distance $D(X,Y)$ entre les clusters $X$ et $Y$:
@@ -342,7 +352,7 @@ for(i in 1:length(pourcentages)){
   cat(paste("Dans le cluster",i,":",pourcentages[i],"\n"))
 }
 ```
-Avec cette méthode, l'ensemble des points est correctement catégorisé.  
+Avec cette méthode, l'ensemble des points sont correctement catégorisé.  
 
  
 
@@ -423,7 +433,9 @@ centroide/medoide
 
 ```
 
-LA différence entre utilisation des k-centroïdes et des kmedoïdes reste assez mineure, le cluster 3 est séparé en deux avec les k-medoïdes mais n'est tout de même pas bien considéré.  
+La différence entre utilisation des k-centroïdes et des kmedoïdes reste assez mineure, le cluster 3 est séparé en deux avec les k-medoïdes mais n'est tout de même pas bien considéré.  
+
+L'algorithme kmeans et kmedoïdes a du mal à classifier les petits clusters qui sont proches de plus grand cluster, car la "masse" des plus gros cluster a tendance à attirer les centroïdes et medoïdes. De façon plus générale l'algorithme kmeans a du mâle à détecter des cluster qui ne sont pas de forme "circulaire/sphérique".
 
 ### kmeans clustering spectral
 Afin de permettre au `kmeans`de mieux performer, nous allons transformer nos données en les segmentant à l'aide du clustering spectral. Il s'agit d'un algorithme de partitionnement des données reposant sur la théorie spectrale des graphes et l’algèbre linéaire.  
@@ -509,7 +521,7 @@ spectral_clust<- function(data,k,sigma){
   # 4: on normalise la matrice X
   Y <- t(apply(X, 1, function(row) row / sqrt(sum(row^2))))
   # 5: Application du kmeans sur la matrice Y
-  kmeans_result <- kmeans(Y, centers = k)
+  kmeans_result <- kmeans(Y, centers = k, nstart = 10)
   cluster_labels <- kmeans_result$cluster
   # on assigne nos points d'origine aux clusters
   original_data_clusters <- rep(NA, nrow(data))
@@ -532,15 +544,25 @@ Cet algorithme plus complexe serait très utile pour du clustering plus poussé.
 <details>
 <summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
 ```{r,eval=FALSE,echo=TRUE}
-hclust <- hclust(dist(flame),method = "single")
-fviz_dend(hclust,repel = TRUE,k = 2,cex = 0.5,color_labels_by_k = FALSE, rect = TRUE)+ 
-labs(title =  "Dendogramme")
+hclust <- flashClust::flashClust(dist(flame),method = "ward")
 clusters <- cutree(hclust, k = 2)
 flame$cluster <- clusters
 ggplot(flame, aes(x = V1, y = V2, color = factor(cluster))) +
   geom_point()+
   ggtitle("hclust")+
   theme_light()
+tab <- table(flame$cluster,flame$V3)
+pourcentages <- numeric(length(unique(flame$cluster)))
+for (i in unique(flame$cluster)) {
+  cluster_total <- sum(tab[,i ])# somme de la colonne correspondant au cluster i
+  points_bien_clusterises <- tab[i, i] # nombre de points bien clusterisés pour le cluster i
+  pourcentage <- points_bien_clusterises / cluster_total * 100 # calcul du pourcentage
+  pourcentages[i] <- pourcentage # stockage du pourcentage dans le vecteur
+}
+cat("Pourcentage de points bien catégorisés pour chaque cluster:\n")
+for(i in 1:length(pourcentages)){
+  cat(paste("Dans le cluster",i,":",round(pourcentages[i],2),"\n"))
+}
 ```
 </details>
 ```{r,cache=TRUE}
@@ -751,7 +773,7 @@ spectral_clust<- function(data,k,sigma){
   # 4: on normalise la matrice X
   Y <- t(apply(X, 1, function(row) row / sqrt(sum(row^2))))
   # 5: Application du kmeans sur la matrice Y
-  kmeans_result <- kmeans(Y, centers = k)
+  kmeans_result <- kmeans(Y, centers = k, nstart = 10)
   cluster_labels <- kmeans_result$cluster
   # on assigne nos points d'origine aux clusters
   original_data_clusters <- rep(NA, nrow(data))
@@ -950,7 +972,7 @@ ggplot(data, aes(x = genes, y = freq, fill = factor(clusters))) +
   theme_minimal()
 ```
 </details>
-```{r,cache=TRUE}
+```{r,cache=TRUE, warning=FALSE}
 hclust <- hclust(dist(spectra),method = "ward.D")
 fviz_dend(hclust,repel = TRUE,k = 8,cex = 0.5,color_labels_by_k = FALSE, rect = TRUE)+ 
 labs(title =  "Dendogramme")
@@ -959,27 +981,32 @@ spectra$cluster <- clusters
 tab <- table(clusters,meta$Gènes)
 data <- as.data.frame.table(tab)
 names(data) <-c("clusters","genes","freq") 
-ggplot(data, aes(x = genes, y = freq, fill = factor(clusters))) +
+ggplot(data, aes(x = clusters, y = freq, fill = factor(genes))) +
   geom_bar(stat = "identity", position = "dodge") +
-  labs(x = "Gènes", y = "Quantité", fill = "Clusters", title = "Quantité par cluster en fonction des gènes:CAH") +
+  labs(x = "Clusters", y = "Quantité", fill = "Gènes", title = "Quantité par cluster en fonction des gènes:CAH") +
   theme_minimal()
 ```
+
+```{r}
+kable(t(as.matrix(tab)), caption = "Résultat de la classification hiérarchique")
+```
+
 
 La stratégie "Ward" semble bien adapté et réussit à bien discriminer les clusters par gène (mis à part pour le gène `AUG` et `NYV`).  
 Ces résultats sont tout à fait cohérent avec l'analyse en composantes principales sur les deux premières dimensions.  
 
-## Kmeans
+## 4: Kmeans
 <details>
 <summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
 ```{r,eval=FALSE,echo=TRUE}
 kmeans <- kmeans(spectra[,-c(ncol(spectra),ncol(spectra)-1)],centers = 8,nstart=10)
 spectra$cluster <- as.character(kmeans$cluster)
 cont <- table(meta$Gènes,spectra$cluster)
-kable(cont)
+kable(cont, caption = "Résultat de la classification par kmeans")
 
 # Visualisation des clusters
 data <- as.data.frame.table(cont)
-names(data) <-c("clusters","genes","freq") 
+names(data) <-c("genes","clusters","freq") 
 ggplot(data, aes(x = genes, y = freq, fill = factor(clusters))) +
   geom_bar(stat = "identity", position = "dodge") +
   labs(x = "Gènes", y = "Quantité", fill = "Clusters", title = "Quantité par cluster en fonction des gènes: kmeans") +
@@ -990,17 +1017,20 @@ ggplot(data, aes(x = genes, y = freq, fill = factor(clusters))) +
 kmeans <- kmeans(spectra[,-c(ncol(spectra),ncol(spectra)-1)],centers = 8,nstart=10)
 spectra$cluster <- as.character(kmeans$cluster)
 cont <- table(meta$Gènes,spectra$cluster)
-kable(cont)
+kable(cont, caption = "Résultat de la classification par kmeans")
+```
 
+```{r}
 # Visualisation des clusters
 data <- as.data.frame.table(cont)
-names(data) <-c("clusters","genes","freq") 
-ggplot(data, aes(x = genes, y = freq, fill = factor(clusters))) +
+names(data) <-c("genes","clusters","freq") 
+ggplot(data, aes(x = clusters, y = freq, fill = factor(genes))) +
   geom_bar(stat = "identity", position = "dodge") +
-  labs(x = "Gènes", y = "Quantité", fill = "Clusters", title = "Quantité par cluster en fonction des gènes: kmeans") +
+  labs(x = "Clusters", y = "Quantité", fill = "Gènes", title = "Quantité par cluster en fonction des gènes: kmeans") +
   theme_minimal()
 ```
 
+On peut remarquer que le clustering hiérarchique à une performance légèrement meilleure que le kmeans. Mais dans l'ensemble, les algorithmes semblent équivalents.
 
 ## 5: identification inter-espèce
 ### Gène RTO
