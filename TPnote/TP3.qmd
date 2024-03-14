@@ -12,6 +12,7 @@ format:
     toc-title: 'Sommaire'
     number-sections: true
     highlight-style: pygments
+    embed-resources: true
 ---
 
 ```{r,echo=FALSE,message=FALSE,warning=FALSE}
@@ -29,9 +30,9 @@ require(FNN)
 require(visdat)
 ```
 
-<div class="alert alert-secondary" role="alert"> <a href="https://github.com/yanismicha/Apprentissage_stat" class="alert-link" style = "color:  #72afd2">Lien vers notre git</a>. Vous retrouverez l'ensemble des projets de cet UE sur ce git.
-</div>
-
+::: {.alert .alert-secondary role="alert"}
+<a href="https://github.com/yanismicha/Apprentissage_stat" class="alert-link" style = "color:  #72afd2">Lien vers notre git</a>. Vous retrouverez l'ensemble des projets de cet UE sur ce git.
+:::
 
 # <u>Exercice 1 : k-means</u>
 
@@ -39,8 +40,8 @@ require(visdat)
 
 ```{r}
 load("datasets/exo-1.Rdata")
-head(X)
-head(y)
+kable(head(X))
+kable(head(y))
 ```
 
 ## 2: kmeans
@@ -49,14 +50,21 @@ head(y)
 ?kmeans
 ```
 
-Les arguments obligatoires dans la fonction <span style="color: #8B0000;">kmeans</span>:
+Les arguments obligatoires dans la fonction [kmeans]{style="color: #8B0000;"}:
 
 -   x: le jeu de données sur lequel on souhaite réaliser l'algorithme
 -   centers: représente le nombre de clusters que l'on souhaite représenter lors de la construction de l'algorithme
 
 ## 3: clustering
+
 <details>
-<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+
+<summary style="font-weight: bold; color: #72afd2;">
+
+Voir le code
+
+</summary>
+
 ```{r,echo=TRUE,eval=FALSE}
 clust <- kmeans(X,3)
 data <- data.frame(X,y)
@@ -72,7 +80,9 @@ ggplot(data, aes(x = Sepal.Length, y = Sepal.Width, color = cluster)) +
             color = "white", size = 4) +
   theme_light()
 ```
+
 </details>
+
 ```{r}
 clust <- kmeans(X,3)
 data <- data.frame(X,y)
@@ -89,13 +99,20 @@ ggplot(data, aes(x = Sepal.Length, y = Sepal.Width, color = cluster)) +
   theme_light()
 ```
 
-## 4:nstart 
-L'argument **nstart** permet de spécifier le nombre de fois que l'algorithme va itérer avec différentes initialisations aléatoires des centroïdes.  
-Il permet donc avec une valeur plus élevé d'optimiser l'algorithme des kmeans en réduisant l'impact de l'aléa du choix d'initialisation de nos centroïdes.  
+## 4:nstart
+
+L'argument **nstart** permet de spécifier le nombre de fois que l'algorithme va itérer avec différentes initialisations aléatoires des centroïdes.\
+Il permet donc avec une valeur plus élevé d'optimiser l'algorithme des kmeans en réduisant l'impact de l'aléa du choix d'initialisation de nos centroïdes.\
 Exemple avec k=5:
 
 <details>
-<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+
+<summary style="font-weight: bold; color: #72afd2;">
+
+Voir le code
+
+</summary>
+
 ```{r,echo=TRUE,eval=FALSE}
 
 for(i in c(1,5,10,20)){
@@ -123,7 +140,9 @@ grid.arrange(fig1, fig5, fig10, fig20, ncol = 2)
 
 
 ```
+
 </details>
+
 ```{r}
 
 for(i in c(1,5,10,20)){
@@ -152,26 +171,32 @@ grid.arrange(fig1, fig5, fig10, fig20, ncol = 2)
 
 ```
 
-On peut voir qu'avec une seule itération, les clusters sont totalements différents qu'avec 5,10 et 20 itérations.  
-Cela est dû comme expliqué précedemment au choix aléatoire des centroïdes à l'initialisation de l'algorithme. Entre 10 et 20 itérations, on peut observer des clusters quasiment à l'identique preuve que cela à permis de réduire cet aléa.  
-On peut lier cet argument à **iter.max** qui permet de spécifier le nombre d'itération de chaque algorithme lancé avant l'arrêt de celui-çi.   
+On peut voir qu'avec une seule itération, les clusters sont totalements différents qu'avec 5,10 et 20 itérations.\
+Cela est dû comme expliqué précedemment au choix aléatoire des centroïdes à l'initialisation de l'algorithme. Entre 10 et 20 itérations, on peut observer des clusters quasiment à l'identique preuve que cela à permis de réduire cet aléa.\
+On peut lier cet argument à **iter.max** qui permet de spécifier le nombre d'itération de chaque algorithme lancé avant l'arrêt de celui-çi.
 
 ## 5: critère de qualité de clustering
-Le critère le plus connu permettant de juger la qualité d'un clustering est l'inertie. L'inertie mesure la dispersion des points de données par rapport à leurs centres de cluster. Plus l'inertie est faible, plus les clusters sont compacts et mieux le clustering est considéré. Autrement dit l'objectif est de minimiser la variance intra-cluster et maximiser la variance inter-cluster.  
+
+Le critère le plus connu permettant de juger la qualité d'un clustering est l'inertie. L'inertie mesure la dispersion des points de données par rapport à leurs centres de cluster. Plus l'inertie est faible, plus les clusters sont compacts et mieux le clustering est considéré. Autrement dit l'objectif est de minimiser la variance intra-cluster et maximiser la variance inter-cluster.\
 Deux autres scores peuvent être intéréssant à utiliser:
 
-- le score **silhouette**:
-$$
-s_i=\frac{b_i-a_i}{max(b_i-a_i)}\\
-$$
+-   le score **silhouette**: $$
+    s_i=\frac{b_i-a_i}{max(b_i-a_i)}\\
+    $$
 
-Où $a_i$ est la distance moyenne du point avec tout les autres points dans le même cluster
-et où $b_i$ est la distance moyenne du point considéré avec tout les points du cluster le plus proche.  
-- le score **gap statistic** qui utilise l'inertie et la compare à celles correspondants à des ensembles de données aléatoires. Il s'agit de la différence  entre la valeur de l'inertie observée pour le clustering réel et la valeur moyenne de l'inertie pour les ensembles de données aléatoires. Plus cette différence est grande, plus le nombre de clusters est jugé approprié.  
+Où $a_i$ est la distance moyenne du point avec tout les autres points dans le même cluster et où $b_i$ est la distance moyenne du point considéré avec tout les points du cluster le plus proche.\
+- le score **gap statistic** qui utilise l'inertie et la compare à celles correspondants à des ensembles de données aléatoires. Il s'agit de la différence entre la valeur de l'inertie observée pour le clustering réel et la valeur moyenne de l'inertie pour les ensembles de données aléatoires. Plus cette différence est grande, plus le nombre de clusters est jugé approprié.
 
 Visualisation de ces scores:
+
 <details>
-<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+
+<summary style="font-weight: bold; color: #72afd2;">
+
+Voir le code
+
+</summary>
+
 ```{r,eval=FALSE,echo=TRUE}
 
 ONC1 <-fviz_nbclust(data[,c(1,2)], FUNcluster = kmeans, method = "silhouette")+ggtitle("Score:Silhouette")
@@ -180,7 +205,9 @@ ONC3 <- fviz_nbclust(data[,c(1,2)], FUNcluster = kmeans, method = "gap_stat")+gg
 (ONC1+ONC2)/ONC3
 
 ```
+
 </details>
+
 ```{r}
 ONC1 <-fviz_nbclust(data[,c(1,2)], FUNcluster = kmeans, method = "silhouette")+ggtitle("Score:Silhouette")
 ONC2 <- fviz_nbclust(data[,c(1,2)], FUNcluster = kmeans, method = "wss")+ggtitle("Score:Inertie")
@@ -189,15 +216,20 @@ ONC3 <- fviz_nbclust(data[,c(1,2)], FUNcluster = kmeans, method = "gap_stat")+gg
 
 ```
 
-On voit qu'avec la technique du coude pour l'inertie et l'optimisation du gap_stat, on retrouve le même nombre de clusters optimaux: 3.   
-En revanche le score silhouette donne une légère préférence pour deux clusters.  
-Le choix de 3 clusters est plus que raisonnable pour la simple et bonne raison que notre jeu de données concerne 3 variétés de plantes différentes.  
-
-
+On voit qu'avec la technique du coude pour l'inertie et l'optimisation du gap_stat, on retrouve le même nombre de clusters optimaux: 3.\
+En revanche le score silhouette donne une légère préférence pour deux clusters.\
+Le choix de 3 clusters est plus que raisonnable pour la simple et bonne raison que notre jeu de données concerne 3 variétés de plantes différentes.
 
 ## 6 Taux d'agréement
+
 <details>
-<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+
+<summary style="font-weight: bold; color: #72afd2;">
+
+Voir le code
+
+</summary>
+
 ```{r,eval=FALSE,echo=TRUE}
 clust <- kmeans(X,centers = 3,nstart = 10)
 data$cluster <- as.character(clust$cluster)
@@ -219,7 +251,9 @@ colors <- c("setosa"="darkred","versicolor"="darkorange","virginica"="steelblue"
   )
 
 ```
+
 </details>
+
 ```{r}
 clust <- kmeans(X,centers = 3,nstart = 10)
 data$cluster <- as.character(clust$cluster)
@@ -242,11 +276,18 @@ colors <- c("setosa"="darkred","versicolor"="darkorange","virginica"="steelblue"
 
 ```
 
-On peut voir sur ce graphique que le cluster1 représente parfaitement les setosa tandis que pour les deux autres clusters l'algorithme a eu plus de mal à les dissocier.   
+On peut voir sur ce graphique que le cluster1 représente parfaitement les setosa tandis que pour les deux autres clusters l'algorithme a eu plus de mal à les dissocier.
 
 ## 7: Introduction de nouvelles données
+
 <details>
-<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+
+<summary style="font-weight: bold; color: #72afd2;">
+
+Voir le code
+
+</summary>
+
 ```{r,eval=FALSE,echo=TRUE}
 new_clust <- kmeans(rbind(X, X.test), 3,nstart = 10)
 f1 <- fviz_cluster(object = clust, X, geom = "point", stand = FALSE, show.clust.cent = FALSE, shape = 16,ellipse.alpha = 0.2)+
@@ -261,7 +302,9 @@ f2 <- fviz_cluster(object = new_clust, rbind(X,X.test), geom = "point", stand = 
   )
 f1/f2
 ```
+
 </details>
+
 ```{r}
 new_clust <- kmeans(rbind(X, X.test), 3,nstart = 10)
 f1 <- fviz_cluster(object = clust, X, geom = "point", stand = FALSE, show.clust.cent = FALSE, shape = 16,ellipse.alpha = 0.2)+
@@ -276,11 +319,11 @@ f2 <- fviz_cluster(object = new_clust, rbind(X,X.test), geom = "point", stand = 
   )
 f1/f2
 ```
-
 
 # <u>Exercice 2 : Clustering et formes</u>
 
 ## Chargement des jeux de données
+
 ```{r}
 Aggregation <- read.delim("datasets/Aggregation.txt", header=FALSE)
 Aggregation<- Aggregation[order(Aggregation$V3), ]
@@ -294,16 +337,22 @@ flame<- flame[order(flame$V3), ]
 ## Aggregation
 
 ### CAH
-Au vu du jeu de données on choisis k=7 clusters.  
-On commence par utiliser la classification ascendante hiérachique pour tenter de discriminer les points en fonction des clusters attendus.  
-Pour ce qui est des paramètres, après une pré-séléction intuituive et de l'essai-erreur, on choisis de garder la distance **euclidienne** et d'utiliser la méthode **single** pour la production du dendogramme.  
-Mathématiquement, cette méthode se traduit comme la distance $D(X,Y)$ entre les clusters $X$ et $Y$:
-$$
+
+Au vu du jeu de données on choisis k=7 clusters.\
+On commence par utiliser la classification ascendante hiérachique pour tenter de discriminer les points en fonction des clusters attendus.\
+Pour ce qui est des paramètres, après une pré-séléction intuituive et de l'essai-erreur, on choisis de garder la distance **euclidienne** et d'utiliser la méthode **single** pour la production du dendogramme.\
+Mathématiquement, cette méthode se traduit comme la distance $D(X,Y)$ entre les clusters $X$ et $Y$: $$
 D(X,Y) = \min_{x \in X, y \in Y} d(x,y)
-$$
-Nous obtenons alors les clusters suivants:
+$$ Nous obtenons alors les clusters suivants:
+
 <details>
-<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+
+<summary style="font-weight: bold; color: #72afd2;">
+
+Voir le code
+
+</summary>
+
 ```{r,eval=FALSE,echo=TRUE}
 hclust <- hclust(dist(Aggregation),method = "single")
 fviz_dend(hclust,repel = TRUE,k = 7,cex = 0.5,color_labels_by_k = FALSE, rect = TRUE)+ 
@@ -327,7 +376,9 @@ for(i in 1:length(pourcentages)){
   cat(paste("Dans le cluster",i,":",pourcentages[i],"\n"))
 }
 ```
+
 </details>
+
 ```{r,cache =TRUE}
 hclust <- hclust(dist(Aggregation),method = "single")
 fviz_dend(hclust,repel = TRUE,k = 7,cex = 0.5,color_labels_by_k = FALSE, rect = TRUE)+ 
@@ -352,16 +403,22 @@ for(i in 1:length(pourcentages)){
   cat(paste("Dans le cluster",i,":",pourcentages[i],"\n"))
 }
 ```
-Avec cette méthode, l'ensemble des points sont correctement catégorisé.  
 
- 
+Avec cette méthode, l'ensemble des points sont correctement catégorisé.
 
 ### Kmeans: Kcentroïdes vs Kmedoïdes
 
-Nous comparons les Kcentroïdes vs Kmedoïdes avec une intuition qu'avec les Kcentroïdes, un problème inhérent à son algorithme risque de se passer sur les deux clusters du bas.  
+Nous comparons les Kcentroïdes vs Kmedoïdes avec une intuition qu'avec les Kcentroïdes, un problème inhérent à son algorithme risque de se passer sur les deux clusters du bas.\
 Pour les paramètres, nous gardons bien evidemment k=7, et nous utilisons nstart=10 pour avoir une stabilité du résultat final:
+
 <details>
-<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+
+<summary style="font-weight: bold; color: #72afd2;">
+
+Voir le code
+
+</summary>
+
 ```{r,eval=FALSE,echo=TRUE}
 clust <- kmeans(Aggregation,7,nstart= 10)
 
@@ -395,7 +452,9 @@ medoide <- ggplot(Aggregation, aes(x = V1, y = V2, color = cluster)) +
 
 centroide/medoide
 ```
+
 </details>
+
 ```{r,cache =TRUE}
 clust <- kmeans(Aggregation,7,nstart= 10)
 
@@ -433,46 +492,45 @@ centroide/medoide
 
 ```
 
-La différence entre utilisation des k-centroïdes et des kmedoïdes reste assez mineure, le cluster 3 est séparé en deux avec les k-medoïdes mais n'est tout de même pas bien considéré.  
+La différence entre utilisation des k-centroïdes et des kmedoïdes reste assez mineure, le cluster 3 est séparé en deux avec les k-medoïdes mais n'est tout de même pas bien considéré.
 
 L'algorithme kmeans et kmedoïdes a du mal à classifier les petits clusters qui sont proches de plus grand cluster, car la "masse" des plus gros cluster a tendance à attirer les centroïdes et medoïdes. De façon plus générale l'algorithme kmeans a du mâle à détecter des cluster qui ne sont pas de forme "circulaire/sphérique".
 
 ### kmeans clustering spectral
-Afin de permettre au `kmeans`de mieux performer, nous allons transformer nos données en les segmentant à l'aide du clustering spectral. Il s'agit d'un algorithme de partitionnement des données reposant sur la théorie spectrale des graphes et l’algèbre linéaire.  
-L’idée est de segmenter un graphe en plusieurs petits groupes ayant des valeurs similaires ou proches.  
+
+Afin de permettre au `kmeans`de mieux performer, nous allons transformer nos données en les segmentant à l'aide du clustering spectral. Il s'agit d'un algorithme de partitionnement des données reposant sur la théorie spectrale des graphes et l'algèbre linéaire.\
+L'idée est de segmenter un graphe en plusieurs petits groupes ayant des valeurs similaires ou proches.
 
 #### <u>Algorithme de Clustering Spectral</u>
 
 Données : Ensemble de points $S = \{s_1, \ldots, s_n\}$ dans $\mathbb{R}^l$, nombre de clusters $k$
 
-1. **Formation de la matrice d'affinité** :
-    a. Calculer la matrice d'affinité $A$ selon $A_{ij} = \exp\left(-\frac{{||s_i - s_j||^2}}{{2 \sigma^2}}\right)$
+1.  **Formation de la matrice d'affinité** :
+    a.  Calculer la matrice d'affinité $A$ selon $A_{ij} = \exp\left(-\frac{{||s_i - s_j||^2}}{{2 \sigma^2}}\right)$
+2.  **Construction de la matrice de degré et de la matrice Laplacienne normalisée** :
+    a.  Calculer la matrice diagonale $D$ où $D_{ii}$ est la somme de la $i$-ème ligne de $A$
+    b.  Construire la matrice $L = D^{-1/2} A D^{-1/2}$
+3.  **Calcul des vecteurs propres et formation de la matrice** $X$ :
+    a.  Trouver les $k$ plus grands vecteurs propres de $L$
+    b.  Assurer l'orthogonalité des vecteurs propres en cas de valeurs propres répétées
+    c.  Former la matrice $X = [x_1, x_2, \ldots, x_k] \in \mathbb{R}^{n \times k}$ en empilant les vecteurs propres
+4.  **Formation de la matrice** $Y$ :
+    a.  Former la matrice $Y$ à partir de $X$ en normalisant chaque ligne de $X$ pour avoir une longueur unitaire : $Y_{ij} = \frac{{X_{ij}}}{{\sqrt{\sum_j (X_{ij})^2}}}$
+5.  **Clustering des lignes de** $Y$ via k-means :
+    a.  Utiliser k-means pour regrouper les lignes de $Y$ en $k$ clusters
+6.  **Assignation des points d'origine aux clusters** :
+    a.  Assigner chaque point d'origine $s_i$ au cluster $j$ si la ligne $i$ de $Y$ a été assignée au cluster $j$
 
-2. **Construction de la matrice de degré et de la matrice Laplacienne normalisée** :
-    a. Calculer la matrice diagonale $D$ où $D_{ii}$ est la somme de la $i$-ème ligne de $A$
-    b. Construire la matrice $L = D^{-1/2} A D^{-1/2}$
+On applique cet algorithme sur notre jeu de données,avec comme clusters $k=7$ et comme ecart-type<br> $\sigma$=`c(0.5,0.8,1,2)`:
 
-3. **Calcul des vecteurs propres et formation de la matrice $X$** :
-    a. Trouver les $k$ plus grands vecteurs propres de $L$
-    b. Assurer l'orthogonalité des vecteurs propres en cas de valeurs propres répétées
-    c. Former la matrice $X = [x_1, x_2, \ldots, x_k] \in \mathbb{R}^{n \times k}$ en empilant les vecteurs propres
-
-4. **Formation de la matrice $Y$** :
-    a. Former la matrice $Y$ à partir de $X$ en normalisant chaque ligne de $X$ pour avoir une longueur unitaire : $Y_{ij} = \frac{{X_{ij}}}{{\sqrt{\sum_j (X_{ij})^2}}}$
-
-5. **Clustering des lignes de $Y$ via k-means** :
-    a. Utiliser k-means pour regrouper les lignes de $Y$ en $k$ clusters
-
-6. **Assignation des points d'origine aux clusters** :
-    a. Assigner chaque point d'origine $s_i$ au cluster $j$ si la ligne $i$ de $Y$ a été assignée au cluster $j$
-
-
-  
-
-
-On applique cet algorithme sur notre jeu de données,avec comme clusters $k=7$ et comme ecart-type<br>  $\sigma$=`c(0.5,0.8,1,2)`: 
 <details>
-<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+
+<summary style="font-weight: bold; color: #72afd2;">
+
+Voir le code
+
+</summary>
+
 ```{r,eval=FALSE,echo=TRUE}
 spectral_clust<- function(data,k,sigma){
   # 1: on construit la matrice adjacente qui qynthétise les relations entre tous les points de données du graphe.
@@ -504,7 +562,9 @@ ggplot(Aggregation, aes(x = V1, y = V2, color = cluster)) +
   geom_point() +
   ggtitle("Kmeans avec clustering spectral")
 ```
+
 </details>
+
 ```{r,cache =TRUE}
 spectral_clust<- function(data,k,sigma){
   # 1: on construit la matrice adjacente qui qynthétise les relations entre tous les points de données du graphe.
@@ -536,13 +596,21 @@ ggplot(Aggregation, aes(x = V1, y = V2, color = cluster)) +
   geom_point() +
   ggtitle("Kmeans avec clustering spectral")
 ```
-Cet algorithme plus complexe serait très utile pour du clustering plus poussé. Pour ce jeu de données, on retiendra la simplicité avec le `CAH` avec comme methode linkage `single`qui fonctionne très bien!  
 
+Cet algorithme plus complexe serait très utile pour du clustering plus poussé. Pour ce jeu de données, on retiendra la simplicité avec le `CAH` avec comme methode linkage `single`qui fonctionne très bien!
 
 ## Flame
+
 ### CAH
+
 <details>
-<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+
+<summary style="font-weight: bold; color: #72afd2;">
+
+Voir le code
+
+</summary>
+
 ```{r,eval=FALSE,echo=TRUE}
 hclust <- flashClust::flashClust(dist(flame),method = "ward")
 clusters <- cutree(hclust, k = 2)
@@ -564,7 +632,9 @@ for(i in 1:length(pourcentages)){
   cat(paste("Dans le cluster",i,":",round(pourcentages[i],2),"\n"))
 }
 ```
+
 </details>
+
 ```{r,cache=TRUE}
 hclust <- flashClust::flashClust(dist(flame),method = "ward")
 #fviz_dend(hclust,repel = TRUE,k = 2,cex = 0.5,color_labels_by_k = FALSE, rect = TRUE)+ 
@@ -588,12 +658,19 @@ for(i in 1:length(pourcentages)){
   cat(paste("Dans le cluster",i,":",round(pourcentages[i],2),"\n"))
 }
 ```
-L'algorithme n'arrive pas à bien trouver les deux clusters.  On peut tenter de passer par des kmeans et des kmedoides en espérant un meilleur résultat.  
 
+L'algorithme n'arrive pas à bien trouver les deux clusters. On peut tenter de passer par des kmeans et des kmedoides en espérant un meilleur résultat.
 
 ### Kmeans
+
 <details>
-<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+
+<summary style="font-weight: bold; color: #72afd2;">
+
+Voir le code
+
+</summary>
+
 ```{r,eval=FALSE,echo=TRUE}
 clust <- kmeans(flame,2,nstart = 10)
 flame$cluster <- factor(clust$cluster)
@@ -626,7 +703,9 @@ centroide/medoide
 
 
 ```
+
 </details>
+
 ```{r,cache =TRUE}
 clust <- kmeans(flame[,c(1,2)],2,nstart = 10)
 flame$cluster <- factor(clust$cluster)
@@ -660,20 +739,28 @@ centroide/medoide
 
 ```
 
-Très peu de différences au niveau des résultats de clustering entre les deux algorithmes pour ce jeu de donnée. On peut se tourner vers des techniques un peu plus complexe comme le DBscan ou le spectralclustering.  
+Très peu de différences au niveau des résultats de clustering entre les deux algorithmes pour ce jeu de donnée. On peut se tourner vers des techniques un peu plus complexe comme le DBscan ou le spectralclustering.
 
 ### DBscan
-DBSCAN (Density-Based Spatial Clustering of Applications with Noise) est un algorithme de clustering qui identifie des zones de densité élevée dans l'espace des données, délimitant ainsi des clusters de formes arbitraires, tout en distinguant les points isolés comme du bruit.  
-Pour cela, on observe d'abord pour chaque point, le nombre de voisins à au plus une distance de $\epsilon$ de celui-ci. Si l'observation considérée possède un certains nombre de voisins (en la comprenant) fixé au préalable, il s'agit d'une observation **coeur**. ON regroupe ensuite toute observation au voisinage d'une observation coeur en les considérant en un cluster. Les observations qui ne sont ni au voisinage d'une observation coeur, ni coeur elle même, sont considéré comme des outliers.  
+
+DBSCAN (Density-Based Spatial Clustering of Applications with Noise) est un algorithme de clustering qui identifie des zones de densité élevée dans l'espace des données, délimitant ainsi des clusters de formes arbitraires, tout en distinguant les points isolés comme du bruit.\
+Pour cela, on observe d'abord pour chaque point, le nombre de voisins à au plus une distance de $\epsilon$ de celui-ci. Si l'observation considérée possède un certains nombre de voisins (en la comprenant) fixé au préalable, il s'agit d'une observation **coeur**. ON regroupe ensuite toute observation au voisinage d'une observation coeur en les considérant en un cluster. Les observations qui ne sont ni au voisinage d'une observation coeur, ni coeur elle même, sont considéré comme des outliers.\
 Il convient alors de définir trois éléments pour cet algorithme:
 
-- la métrique utilisée pour calculer les voisinages: nous utliserons la distance euclidienne implémenté par défault dans la fonction `knn`.
-- le nombre de voisins nécessaire pour constituer une observation coeur. Nous pouvons faire varier cet argument avec au départ un nombre point minimal à trois au vu de notre jeu de données (2 outliers sont facilement visible à l'oeil).
-- la distance $\epsilon$ maximum entre voisins que nous définirons en visualisant les distances pour chaque observation de son voisin le plus proche.  
+-   la métrique utilisée pour calculer les voisinages: nous utliserons la distance euclidienne implémenté par défault dans la fonction `knn`.
+-   le nombre de voisins nécessaire pour constituer une observation coeur. Nous pouvons faire varier cet argument avec au départ un nombre point minimal à trois au vu de notre jeu de données (2 outliers sont facilement visible à l'oeil).
+-   la distance $\epsilon$ maximum entre voisins que nous définirons en visualisant les distances pour chaque observation de son voisin le plus proche.
 
-Pour ce dernier argument, nous allons fixer $\epsilon$ tel qu'une part "sufisamment grande" des observations aient une distance à son plus proche voisin inférieure à $\epsilon$.  Pour cela nous affichons sur un graphique les distances triés des voisins de chaque observations puis nous  utilisons la méthode du coude:
+Pour ce dernier argument, nous allons fixer $\epsilon$ tel qu'une part "sufisamment grande" des observations aient une distance à son plus proche voisin inférieure à $\epsilon$. Pour cela nous affichons sur un graphique les distances triés des voisins de chaque observations puis nous utilisons la méthode du coude:
+
 <details>
-<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+
+<summary style="font-weight: bold; color: #72afd2;">
+
+Voir le code
+
+</summary>
+
 ```{r,eval=FALSE,echo=TRUE}
 k <- 3
 knn_dist <- knn.dist(flame[,c(1,2)], k)
@@ -693,7 +780,9 @@ ggplot(data.frame(x= 1:nrow(flame),y = elbow),aes(x = x, y = y))+
   ylab("Elbow Criterion") +
   theme_minimal()
 ```
+
 </details>
+
 ```{r}
 k <- 3
 knn_dist <- knn.dist(flame[,c(1,2)], k)
@@ -713,10 +802,18 @@ ggplot(data.frame(x= 1:nrow(flame),y = elbow),aes(x = x, y = y))+
   ylab("Elbow Criterion") +
   theme_minimal()
 ```
-Avec cette méthode, on choisi un $\epsilon$ proche de 1.  
+
+Avec cette méthode, on choisi un $\epsilon$ proche de 1.\
 Il nous reste plus qu'à utiliser `dbscan` avec les arguments choisis et de visualiser graphiquement les clusters. COmme ce qui nous intéresse est d'avoir seulement 2 clusters, je n'affiche que les résultats qui ne font ressortir que deux clusters:
+
 <details>
-<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+
+<summary style="font-weight: bold; color: #72afd2;">
+
+Voir le code
+
+</summary>
+
 ```{r,eval=FALSE,echo=TRUE}
 for(i in 3:8){
   dbscan_result <- dbscan(flame[,c(1,2)], eps =0.99, minPts = i,borderPoints = TRUE)
@@ -730,7 +827,9 @@ for(i in 3:8){
   }
 }
 ```
+
 </details>
+
 ```{r,cache =TRUE}
 for(i in 3:8){
   dbscan_result <- dbscan(flame[,c(1,2)], eps =0.99, minPts = i,borderPoints = TRUE)
@@ -745,18 +844,27 @@ for(i in 3:8){
 }
 #hdb <-  hdbscan(flame[,c(1,2)], minPts = 6)
 ```
-Les points rouges (cluster 0) sont des **outliers**. Avec 6 voisins minimum, l'algorithme arrive assez bien à retranscrire les deux clusters même si 6 points sont considérés outliers aux bords des deux clusters.  
 
+Les points rouges (cluster 0) sont des **outliers**. Avec 6 voisins minimum, l'algorithme arrive assez bien à retranscrire les deux clusters même si 6 points sont considérés outliers aux bords des deux clusters.
 
 ### Kmeans avec clustering spectral
+
 <details>
-<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+
+<summary style="font-weight: bold; color: #72afd2;">
+
+Voir le code
+
+</summary>
+
 ```{r,eval=FALSE,echo=TRUE}
 flame$cluster <- factor(spectral_clust(flame[,c(1,2)],2,1))
 ggplot(flame, aes(x = V1, y = V2, color = cluster)) +
   geom_point() 
 ```
+
 </details>
+
 ```{r,cache=TRUE}
 spectral_clust<- function(data,k,sigma){
   # 1: on construit la matrice adjacente qui qynthétise les relations entre tous les points de données du graphe.
@@ -789,10 +897,19 @@ ggplot(flame, aes(x = V1, y = V2, color = cluster)) +
 ```
 
 ## Spiral
+
 ### CAH
+
 On fait le même choix que pour le jeu de données `Aggregation` en prenant comme distance la distance euclidienne et comme méthode de linkage `single`:
+
 <details>
-<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+
+<summary style="font-weight: bold; color: #72afd2;">
+
+Voir le code
+
+</summary>
+
 ```{r,eval=FALSE,echo=TRUE}
 hclust <- hclust(dist(spiral),method = "single")
 fviz_dend(hclust,repel = TRUE,k = 7,cex = 0.5,color_labels_by_k = FALSE, rect = TRUE)+ 
@@ -816,6 +933,7 @@ for(i in 1:length(pourcentages)){
   cat(paste("Dans le cluster",i,":",pourcentages[i],"\n"))
 }
 ```
+
 </details>
 
 ```{r,cache=TRUE}
@@ -843,19 +961,27 @@ for(i in 1:length(pourcentages)){
 
 ```
 
-L'algorithme arrive parfaitement a retrouver les bons clusters.  On peut tout de même par curiosité tester le spectral clustering pour tenter de faire fonctionner les kmeans.   
-
+L'algorithme arrive parfaitement a retrouver les bons clusters. On peut tout de même par curiosité tester le spectral clustering pour tenter de faire fonctionner les kmeans.
 
 ### Kmeans avec clustering spectral
+
 <details>
-<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+
+<summary style="font-weight: bold; color: #72afd2;">
+
+Voir le code
+
+</summary>
+
 ```{r,eval=FALSE,echo=TRUE}
 # Avec variance = 1 et 3 clusters
 spiral$cluster <-factor(spectral_clust(spiral[,c(1,2)],3,1))
 ggplot(spiral, aes(x = V1, y = V2, color = cluster)) +
   geom_point()
 ```
+
 </details>
+
 ```{r}
 spectral_clust<- function(data,k,sigma){
   # 1: on construit la matrice adjacente qui qynthétise les relations entre tous les points de données du graphe.
@@ -888,6 +1014,7 @@ ggplot(spiral, aes(x = V1, y = V2, color = cluster)) +
 ```
 
 # <u>Exercice 3: Analyse exporatoire</u>
+
 ```{r}
 spectra <- read.table("datasets/spectra.txt")
 meta <- read.table("datasets/meta-data.txt",header = TRUE)
@@ -895,8 +1022,15 @@ names(meta) <- c("Espèces","Gènes")
 ```
 
 ## 1: représentation des observations
+
 <details>
-<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+
+<summary style="font-weight: bold; color: #72afd2;">
+
+Voir le code
+
+</summary>
+
 ```{r,eval=FALSE,echo=TRUE}
 ggplot(meta,aes(x = Gènes,fill= Espèces))+
   geom_bar()+
@@ -904,7 +1038,9 @@ ggplot(meta,aes(x = Gènes,fill= Espèces))+
     y = "Quantité"
   )
 ```
+
 </details>
+
 ```{r,cache=TRUE}
 ggplot(meta,aes(x = Gènes,fill= Espèces))+
   geom_bar()+
@@ -913,10 +1049,16 @@ ggplot(meta,aes(x = Gènes,fill= Espèces))+
   )
 ```
 
+## 2: ACP
 
-## 2: ACP 
 <details>
-<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+
+<summary style="font-weight: bold; color: #72afd2;">
+
+Voir le code
+
+</summary>
+
 ```{r,eval=FALSE,echo=TRUE}
 spectra$Gènes<- meta$Gènes
 ACP_res <- PCA(spectra,graph = FALSE,quali.sup = "Gènes")
@@ -931,7 +1073,9 @@ dim3 <- fviz_pca_ind(ACP_res,habillage = "Gènes",geom.ind = "point",addEllipses
   )
 dim3
 ```
+
 </details>
+
 ```{r,cache=TRUE}
 spectra$Gènes<- meta$Gènes
 ACP_res <- PCA(spectra,graph = FALSE,quali.sup = "Gènes")
@@ -947,16 +1091,23 @@ dim3 <- fviz_pca_ind(ACP_res,habillage = "Gènes",geom.ind = "point",addEllipses
 dim3
 ```
 
-On peut voir que sur la représentation sur l'axe 3 et 4, les points sont plus centrés autour des deux axes. On peut plus facilement visualiser des groupes entre les différents gènes.  
-Malgré cela, la variance représenté par les quatres premières composantes reste dérisoire (`r round(ACP_res$eig[4,3],0)`% de variance cumulée), on ne peut donc pas tirer grand chose de ces graphiques.   
+On peut voir que sur la représentation sur l'axe 3 et 4, les points sont plus centrés autour des deux axes. On peut plus facilement visualiser des groupes entre les différents gènes.\
+Malgré cela, la variance représenté par les quatres premières composantes reste dérisoire (`r round(ACP_res$eig[4,3],0)`% de variance cumulée), on ne peut donc pas tirer grand chose de ces graphiques.
 
 ## 3: clustering hierarchique
+
 ```{r,eval=FALSE}
 vis_dat(spectra)
 ```
 
 <details>
-<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+
+<summary style="font-weight: bold; color: #72afd2;">
+
+Voir le code
+
+</summary>
+
 ```{r,eval=FALSE,echo=TRUE}
 hclust <- hclust(dist(spectra),method = "ward.D")
 fviz_dend(hclust,repel = TRUE,k = 8,cex = 0.5,color_labels_by_k = FALSE, rect = TRUE)+ 
@@ -971,7 +1122,9 @@ ggplot(data, aes(x = genes, y = freq, fill = factor(clusters))) +
   labs(x = "Gènes", y = "Quantité", fill = "Clusters", title = "Quantité par cluster en fonction des gènes:CAH") +
   theme_minimal()
 ```
+
 </details>
+
 ```{r,cache=TRUE, warning=FALSE}
 hclust <- hclust(dist(spectra),method = "ward.D")
 fviz_dend(hclust,repel = TRUE,k = 8,cex = 0.5,color_labels_by_k = FALSE, rect = TRUE)+ 
@@ -991,13 +1144,19 @@ ggplot(data, aes(x = clusters, y = freq, fill = factor(genes))) +
 kable(t(as.matrix(tab)), caption = "Résultat de la classification hiérarchique")
 ```
 
-
-La stratégie "Ward" semble bien adapté et réussit à bien discriminer les clusters par gène (mis à part pour le gène `AUG` et `NYV`).  
-Ces résultats sont tout à fait cohérent avec l'analyse en composantes principales sur les deux premières dimensions.  
+La stratégie "Ward" semble bien adapté et réussit à bien discriminer les clusters par gène (mis à part pour le gène `AUG` et `NYV`).\
+Ces résultats sont tout à fait cohérent avec l'analyse en composantes principales sur les deux premières dimensions.
 
 ## 4: Kmeans
+
 <details>
-<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+
+<summary style="font-weight: bold; color: #72afd2;">
+
+Voir le code
+
+</summary>
+
 ```{r,eval=FALSE,echo=TRUE}
 kmeans <- kmeans(spectra[,-c(ncol(spectra),ncol(spectra)-1)],centers = 8,nstart=10)
 spectra$cluster <- as.character(kmeans$cluster)
@@ -1012,7 +1171,9 @@ ggplot(data, aes(x = genes, y = freq, fill = factor(clusters))) +
   labs(x = "Gènes", y = "Quantité", fill = "Clusters", title = "Quantité par cluster en fonction des gènes: kmeans") +
   theme_minimal()
 ```
+
 </details>
+
 ```{r,cache =TRUE}
 kmeans <- kmeans(spectra[,-c(ncol(spectra),ncol(spectra)-1)],centers = 8,nstart=10)
 spectra$cluster <- as.character(kmeans$cluster)
@@ -1033,16 +1194,26 @@ ggplot(data, aes(x = clusters, y = freq, fill = factor(genes))) +
 On peut remarquer que le clustering hiérarchique à une performance légèrement meilleure que le kmeans. Mais dans l'ensemble, les algorithmes semblent équivalents.
 
 ## 5: identification inter-espèce
+
 ### Gène RTO
+
 <details>
-<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+
+<summary style="font-weight: bold; color: #72afd2;">
+
+Voir le code
+
+</summary>
+
 ```{r,echo=TRUE,eval=FALSE}
 spectra$espèces <- meta$Espèces
 ACP <- PCA(spectra[spectra$Gènes=="RTO",],quali.sup = c("Gènes","espèces","cluster"),graph = FALSE)
 fviz_pca_ind(ACP,habillage = "espèces",addEllipses = TRUE)+
   ggtitle("Représentation ACP sur les composantes 1 et 2 du gène RTO")
 ```
+
 </details>
+
 ```{r}
 spectra$espèces <- meta$Espèces
 ACP <- PCA(spectra[spectra$Gènes=="RTO",],quali.sup = c("Gènes","espèces","cluster"),graph = FALSE)
@@ -1050,11 +1221,18 @@ fviz_pca_ind(ACP,habillage = "espèces",addEllipses = TRUE)+
   ggtitle("Représentation ACP sur les composantes 1 et 2 du gène RTO")
 ```
 
-Les observations des deux espèces s'entremêlent sur ce graphique ce qui ne permet pas une différenciation claire.  
+Les observations des deux espèces s'entremêlent sur ce graphique ce qui ne permet pas une différenciation claire.
 
 ### Kmeans
+
 <details>
-<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+
+<summary style="font-weight: bold; color: #72afd2;">
+
+Voir le code
+
+</summary>
+
 ```{r,eval=FALSE,echo=TRUE}
 data <- spectra[spectra$Gènes=="RTO",]
 n <- ncol(spectra)
@@ -1067,7 +1245,9 @@ ggplot(data_plot, aes(x = especes, y = freq, fill = factor(clusters))) +
   labs(x = "Espèces", y = "Quantité", fill = "Clusters", title = "Quantité par cluster en fonction des espèces: kmeans") +
   theme_minimal()
 ```
+
 </details>
+
 ```{r}
 data <- spectra[spectra$Gènes=="RTO",]
 n <- ncol(spectra)
@@ -1083,27 +1263,40 @@ ggplot(data_plot, aes(x = especes, y = freq, fill = factor(clusters))) +
 
 Il n'est pas possible avec un simple kmeans de discriminer parfaitement les deux espèces, il faudrait sûrement transformer nos données pour les visualiser sur plus de dimensions pour permettre une meilleure discrimination.
 
-
-
 ### Gène AUG
+
 <details>
-<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+
+<summary style="font-weight: bold; color: #72afd2;">
+
+Voir le code
+
+</summary>
+
 ```{r,eval=FALSE,echo=TRUE}
 ACP <- PCA(spectra[spectra$Gènes=="AUG",],quali.sup = c("Gènes","espèces","cluster"),graph = FALSE)
 fviz_pca_ind(ACP,habillage = "espèces",addEllipses = TRUE,geom.ind = "point")+
   ggtitle("Représentation ACP sur les composantes 1 et 2 du gène AUG")
 ```
+
 </details>
+
 ```{r,cache=TRUE}
 ACP <- PCA(spectra[spectra$Gènes=="AUG",],quali.sup = c("Gènes","espèces","cluster"),graph = FALSE)
 fviz_pca_ind(ACP,habillage = "espèces",addEllipses = TRUE,geom.ind = "point")+
   ggtitle("Représentation ACP sur les composantes 1 et 2 du gène AUG")
 ```
 
-On peut voir une nette séparation entre les observations des deux espèces.  
+On peut voir une nette séparation entre les observations des deux espèces.
 
 <details>
-<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+
+<summary style="font-weight: bold; color: #72afd2;">
+
+Voir le code
+
+</summary>
+
 ```{r,eval=FALSE,echo=TRUE}
 data <- spectra[spectra$Gènes=="AUG",]
 n <- ncol(spectra)
@@ -1116,7 +1309,9 @@ ggplot(data_plot, aes(x = especes, y = freq, fill = factor(clusters))) +
   labs(x = "Espèces", y = "Quantité", fill = "Clusters", title = "Quantité par cluster en fonction des espèces: kmeans") +
   theme_minimal()
 ```
+
 </details>
+
 ```{r,cache=TRUE}
 data <- spectra[spectra$Gènes=="AUG",]
 n <- ncol(spectra)
@@ -1130,13 +1325,4 @@ ggplot(data_plot, aes(x = especes, y = freq, fill = factor(clusters))) +
   theme_minimal()
 ```
 
-On voit également qu'avec un simple kmeans, on arrive à facilement discriminer les deux types d'espèces.  
-
-
-
-
-  
-
-
-
-
+On voit également qu'avec un simple kmeans, on arrive à facilement discriminer les deux types d'espèces.

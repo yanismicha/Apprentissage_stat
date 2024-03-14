@@ -1,0 +1,45 @@
+---
+title: "Projet"
+authors: 
+ - "Yanis Micha"
+ - "Andrew Hardwick"
+format: html
+---
+
+```{r echo=FALSE,warning = FALSE,message = FALSE}
+require(dplyr)
+require(tibble)
+require(ggplot2)
+require(dbscan)
+knitr::opts_chunk$set(echo=FALSE,warning = FALSE,message = FALSE)
+load("outlier-dataset.Rdata")
+```
+
+
+```{r}
+data <- tibble::as_tibble(X)
+data <- mutate(data,cat=y)
+```
+
+
+```{r}
+ggplot(data,aes(x = V19,y = V20,color=cat))+geom_point()
+```
+
+
+```{r}
+best_acc <- 0
+best_k <- 0
+for(k in 2:15){
+  lof <- lof(X, minPts = k)
+  pred <- ifelse(lof>=1,"outlier","normal")
+  acc <- sum(pred == data$cat) / length(data$cat)
+  if(acc > best_acc){
+    best_acc <- acc
+    best_k <- i
+  }
+}
+
+  
+```
+
