@@ -11,6 +11,12 @@ require(dplyr)
 require(tibble)
 require(ggplot2)
 require(dbscan)
+require(Metrics)
+require(isotree)
+require(pROC)
+require(FactoMineR)
+require(factoextra)
+
 knitr::opts_chunk$set(echo=FALSE,warning = FALSE,message = FALSE)
 load("outlier-dataset.Rdata")
 ```
@@ -25,21 +31,118 @@ data <- mutate(data,cat=y)
 ```{r}
 ggplot(data,aes(x = V19,y = V20,color=cat))+geom_point()
 ```
-
+# Comparatif courbes roc
+## Local Outlier FActor
 
 ```{r}
 best_acc <- 0
 best_k <- 0
 for(k in 2:15){
   lof <- lof(X, minPts = k)
-  pred <- ifelse(lof>=1,"outlier","normal")
+  pred <- ifelse(lof==Inf,"outlier","normal")
   acc <- sum(pred == data$cat) / length(data$cat)
   if(acc > best_acc){
     best_acc <- acc
-    best_k <- i
+    best_k <- k
   }
 }
 
   
+lof <- lof(X,minPts = best_k)
+predicted <- ifelse(lof>= 2,"outlier","normal")
+score<- accuracy(predicted,data$cat)
+score
+
 ```
+
+## Isolation Forest
+```{r}
+model_forest <- isolation.forest(X)
+pred <- predict(model_forest,X)
+predicted <- ifelse(pred>0.45,"outlier","normal")
+score_iso <- accuracy(predicted,y)
+```
+
+
+```{r}
+# on créer un objet roc 
+roc <- roc(y,-lof)
+roc2 <- roc(y, -pred)
+# trace les courbes roc
+ggroc(list(LOF=roc,IsolationForest=roc2))+ 
+  annotate(geom="text",x = 0.7,y = 0.9,label = paste0("LOF: AUC=",round(auc(roc),2),",ACCURACY=",round(score,2)))+ 
+  annotate(geom="text",x = 0.7,y = 0.8,label = paste0("ISO: AUC=",round(auc(roc2),2),",ACCURACY=",round(score_iso,2)))+ ggtitle("Courbe ROC des modèles")
+```
+
+
+# Avec standardisation des variables et ACP
+```{r}
+ACP <- PCA(scale(X),graph = FALSE)
+get_eig(ACP) # on garde 10 dimensions
+which.min(get_eig(ACP)[,3]<60)# pour avoir au moins 60%
+dim <- 10
+X_pca <- PCA(scale(X),ncp = 10,graph = FALSE)$ind$coord
+```
+
+## LOF
+```{r}
+best_acc <- 0
+best_k <- 0
+for(k in 2:15){
+  lof <- lof(X_pca, minPts = k)
+  pred <- ifelse(lof==Inf,"outlier","normal")
+  acc <- sum(pred == data$cat) / length(data$cat)
+  if(acc > best_acc){
+    best_acc <- acc
+    best_k <- k
+  }
+}
+
+  
+lof <- lof(X_pca,minPts = best_k)
+predicted <- ifelse(lof>= 2,"outlier","normal")
+score<- accuracy(predicted,data$cat)
+score
+```
+
+## Isolation Forest
+```{r}
+best_acc <- 0
+best_ntrees <- 0
+for(n in c(10,25,50,75,100,150,200)){
+  iso <- isolation.forest(X_pca,ntrees = n)
+  pred <- predict(model_forest,X)
+  # on affiche comme outlier les 5%de valeurs les plus hautes
+  predicted <- ifelse(pred>quantile(pred, probs = 0.95),"outlier","normal")
+  score_iso <- accuracy(predicted,y)
+  if(score_iso > best_acc){
+    best_acc <- score_iso
+    best_ntrees <- n
+  }
+}
+model_forest <- isolation.forest(X_pca,ntrees = best_ntrees)
+pred <- predict(model_forest,X)
+predicted <- ifelse(pred>quantile(pred, probs = 0.95),"outlier","normal")
+score_iso <- accuracy(predicted,y)
+```
+
+
+```{r}
+# on créer un objet roc 
+roc <- roc(y,-lof)
+roc2 <- roc(y, -pred)
+# trace les courbes roc
+ggroc(list(LOF=roc,IsolationForest=roc2))+ 
+  annotate(geom="text",x = 0.7,y = 0.9,label = paste0("LOF: AUC=",round(auc(roc),2),",ACCURACY=",round(score,2)))+ 
+  annotate(geom="text",x = 0.7,y = 0.8,label = paste0("ISO: AUC=",round(auc(roc2),2),",ACCURACY=",round(score_iso,2)))+ ggtitle("Courbes ROC des modèles sur ACP normalisé")
+```
+
+```{r}
+
+```
+
+
+
+
+
 
