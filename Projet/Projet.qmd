@@ -16,8 +16,11 @@ require(isotree)
 require(pROC)
 require(FactoMineR)
 require(factoextra)
-
-knitr::opts_chunk$set(echo=FALSE,warning = FALSE,message = FALSE)
+require(fontawesome)
+require(e1071)
+require(caret)
+require(mclust)
+knitr::opts_chunk$set(echo=FALSE,warning = FALSE,message = FALSE,cache=TRUE)
 load("outlier-dataset.Rdata")
 ```
 
@@ -27,10 +30,17 @@ data <- tibble::as_tibble(X)
 data <- mutate(data,cat=y)
 ```
 
+<details>
+<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+```{r,eval=FALSE,echo=TRUE}
+ggplot(data,aes(x = V19,y = V20,color=cat))+geom_point()+ggtitle("Visualisation des outliers")
+```
+</details>
 
 ```{r}
-ggplot(data,aes(x = V19,y = V20,color=cat))+geom_point()
+ggplot(data,aes(x = V19,y = V20,color=cat))+geom_point()+ggtitle("Visualisation des outliers")
 ```
+
 # Comparatif courbes roc
 ## Local Outlier FActor
 
@@ -57,28 +67,52 @@ score
 
 ## Isolation Forest
 ```{r}
-model_forest <- isolation.forest(X)
-pred <- predict(model_forest,X)
-predicted <- ifelse(pred>0.45,"outlier","normal")
+best_acc <- 0
+best_ntrees <- 0
+for(n in c(10,25,50,75,100,150,200)){
+  iso <- isolation.forest(X,ntrees = n)
+  pred <- predict(iso,X)
+  # on affiche comme outlier les 5%de valeurs les plus hautes
+  predicted <- ifelse(pred>quantile(pred, probs = 0.95),"outlier","normal")
+  score_iso <- accuracy(predicted,y)
+  if(score_iso > best_acc){
+    best_acc <- score_iso
+    best_ntrees <- n
+  }
+}
+iso <- isolation.forest(X,ntrees = best_ntrees)
+pred <- predict(iso,X)
+predicted <- ifelse(pred>quantile(pred, probs = 0.95),"outlier","normal")
 score_iso <- accuracy(predicted,y)
 ```
 
+<details>  
+<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+```{r,eval=FALSE,echo=TRUE}
+# on créer un objet roc 
+roc_lof <- roc(y,-lof)
+roc_iso <- roc(y, -pred)
+# trace les courbes roc
+ggroc(list(LOF=roc_lof,IsolationForest=roc_iso))+ 
+  annotate(geom="text",x = 0.7,y = 0.9,label = paste0("LOF: AUC=",round(auc(roc_lof),2),",ACCURACY=",round(score,2)))+ 
+  annotate(geom="text",x = 0.7,y = 0.8,label = paste0("ISO: AUC=",round(auc(roc_iso),2),",ACCURACY=",round(score_iso,2)))+ ggtitle("Courbe ROC des modèles")
+```
+</details>
 
 ```{r}
 # on créer un objet roc 
-roc <- roc(y,-lof)
-roc2 <- roc(y, -pred)
+roc_lof <- roc(y,-lof)
+roc_iso <- roc(y, -pred)
 # trace les courbes roc
-ggroc(list(LOF=roc,IsolationForest=roc2))+ 
-  annotate(geom="text",x = 0.7,y = 0.9,label = paste0("LOF: AUC=",round(auc(roc),2),",ACCURACY=",round(score,2)))+ 
-  annotate(geom="text",x = 0.7,y = 0.8,label = paste0("ISO: AUC=",round(auc(roc2),2),",ACCURACY=",round(score_iso,2)))+ ggtitle("Courbe ROC des modèles")
+ggroc(list(LOF=roc_lof,IsolationForest=roc_iso))+ 
+  annotate(geom="text",x = 0.7,y = 0.9,label = paste0("LOF: AUC=",round(auc(roc_lof),2),",ACCURACY=",round(score,2)))+ 
+  annotate(geom="text",x = 0.7,y = 0.8,label = paste0("ISO: AUC=",round(auc(roc_iso),2),",ACCURACY=",round(score_iso,2)))+ ggtitle("Courbe ROC des modèles")
 ```
-
 
 # Avec standardisation des variables et ACP
 ```{r}
 ACP <- PCA(scale(X),graph = FALSE)
-get_eig(ACP) # on garde 10 dimensions
+#get_eig(ACP) # on garde 10 dimensions
 which.min(get_eig(ACP)[,3]<60)# pour avoir au moins 60%
 dim <- 10
 X_pca <- PCA(scale(X),ncp = 10,graph = FALSE)$ind$coord
@@ -111,7 +145,7 @@ best_acc <- 0
 best_ntrees <- 0
 for(n in c(10,25,50,75,100,150,200)){
   iso <- isolation.forest(X_pca,ntrees = n)
-  pred <- predict(model_forest,X)
+  pred <- predict(iso,X)
   # on affiche comme outlier les 5%de valeurs les plus hautes
   predicted <- ifelse(pred>quantile(pred, probs = 0.95),"outlier","normal")
   score_iso <- accuracy(predicted,y)
@@ -126,20 +160,76 @@ predicted <- ifelse(pred>quantile(pred, probs = 0.95),"outlier","normal")
 score_iso <- accuracy(predicted,y)
 ```
 
+<details>
+<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+```{r,eval=FALSE,echo=TRUE}
+# on créer un objet roc 
+roc_lof_acp <- roc(y,-lof)
+roc_iso_acp <- roc(y, -pred)
+# trace les courbes roc
+ggroc(list(LOF=roc_lof_acp,IsolationForest=roc_iso_acp))+ 
+  annotate(geom="text",x = 0.7,y = 0.9,label = paste0("LOF: AUC=",round(auc(roc_lof_acp),2),",ACCURACY=",round(score,2)))+ 
+  annotate(geom="text",x = 0.7,y = 0.8,label = paste0("ISO: AUC=",round(auc(roc_iso_acp),2),",ACCURACY=",round(score_iso,2)))+ ggtitle("Courbes ROC des modèles sur ACP normalisé")
+```
+</details>
 
+  
 ```{r}
 # on créer un objet roc 
-roc <- roc(y,-lof)
-roc2 <- roc(y, -pred)
+roc_lof_acp <- roc(y,-lof)
+roc_iso_acp <- roc(y, -pred)
 # trace les courbes roc
-ggroc(list(LOF=roc,IsolationForest=roc2))+ 
-  annotate(geom="text",x = 0.7,y = 0.9,label = paste0("LOF: AUC=",round(auc(roc),2),",ACCURACY=",round(score,2)))+ 
-  annotate(geom="text",x = 0.7,y = 0.8,label = paste0("ISO: AUC=",round(auc(roc2),2),",ACCURACY=",round(score_iso,2)))+ ggtitle("Courbes ROC des modèles sur ACP normalisé")
+ggroc(list(LOF=roc_lof_acp,IsolationForest=roc_iso_acp))+ 
+  annotate(geom="text",x = 0.7,y = 0.9,label = paste0("LOF: AUC=",round(auc(roc_lof_acp),2),",ACCURACY=",round(score,2)))+ 
+  annotate(geom="text",x = 0.7,y = 0.8,label = paste0("ISO: AUC=",round(auc(roc_iso_acp),2),",ACCURACY=",round(score_iso,2)))+ ggtitle("Courbes ROC des modèles sur ACP normalisé")
+```
+
+
+# Comparaison avec Svm et gaussienne 
+## Support vector Machine
+```{r}
+best_params_auc <- c()
+best_auc <- 0
+best_acc <- 0
+best_params <- c()
+for(gamma in seq(0,1,0.1)){
+  for(kernel in c("polynomial","linear","radial","sigmoid")){
+    svm <- svm(X,type='one-classification',nu=0.05,kernel=kernel,gamma=gamma)
+    pred_svm <- ifelse(predict(svm,X),"normal","outlier")
+    auc_svm <- auc(roc(y,svm$decision.values[,1]))
+    if(auc_svm>best_auc){
+      best_auc <- auc_svm
+      best_params_auc<- c(paste0("gamma=",gamma),paste0("kernel=",kernel))
+    }
+    if(accuracy(y,pred_svm)>best_acc){
+      best_acc <- accuracy(y,pred_svm)
+      best_params <- c(paste0("gamma=",gamma),paste0("kernel=",kernel))
+    }
+  }
+}
+best_params
+
 ```
 
 ```{r}
-
+svm <- svm(X,type="one-classification",nu=0.05,kernel="radial",gamma=0.1)
+pred_svm <- predict(svm,X)
+pred_svm <- ifelse(pred_svm,"normal","outlier")
+tab <- caret::confusionMatrix(table(pred_svm,y))
+roc_svm <- roc(y,svm$decision.values[,1])
+ggroc(list(SVM=roc_svm))+annotate("text",x= 0.7,y=0.8,label = paste0("AUC=",round(auc(roc_svm),2)))+ggtitle("Courbe ROC des modèles")
 ```
+
+
+```{r}
+ggroc(list(LOF=roc_lof,IsolationForest=roc_iso,SVM = roc_svm))+ 
+  annotate(geom="text",x = 0.7,y = 0.9,label = paste0("LOF: AUC=",round(auc(roc_lof),2),",ACCURACY=",round(score,2)))+ 
+  annotate(geom="text",x = 0.7,y = 0.85,label = paste0("ISO: AUC=",round(auc(roc_iso),2),",ACCURACY=",round(score_iso,2)))+ 
+  annotate(geom="text",x = 0.7,y = 0.8,label = paste0("SVM: AUC=",round(auc(roc_svm),2),",ACCURACY=",round(tab$overall[1],2)))+ggtitle("Courbes ROC des modèles")
+```
+
+
+
 
 
 
