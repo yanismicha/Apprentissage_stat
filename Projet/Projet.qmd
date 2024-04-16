@@ -1,50 +1,85 @@
 ---
-title: "Projet"
+title: "Détection d’anomalies"
 authors: 
  - "Yanis Micha"
  - "Andrew Hardwick"
-format: html
+format:
+ bookup-html+dark:
+    toc: true
+    toc-expand: 1
+    toc-depth: 3
+    toc-location: 'left'
+    toc-title: 'Sommaire'
+    number-sections: true
+    highlight-style: pygments
+    embed-resources: true
 ---
 
 ```{r echo=FALSE,warning = FALSE,message = FALSE}
-require(dplyr)
-require(tibble)
-require(ggplot2)
-require(dbscan)
-require(Metrics)
-require(isotree)
-require(pROC)
-require(FactoMineR)
-require(factoextra)
-require(fontawesome)
-require(e1071)
-require(caret)
-require(mclust)
+if(!require(dplyr)){install.packages("dplyr"); library(dplyr)}
+if(!require(tibble)){install.packages("tibble"); library(tibble)}
+if(!require(ggplot2)){install.packages("ggplot2"); library(ggplot2)}
+if(!require(dbscan)){install.packages("dbscan"); library(dbscan)}
+if(!require(Metrics)){install.packages("Metrics"); library(Metrics)}
+if(!require(isotree)){install.packages("isotree"); library(isotree)}
+if(!require(pROC)){install.packages("pROC"); library(pROC)}
+if(!require(FactoMineR)){install.packages("FactoMineR"); library(FactoMineR)}
+if(!require(factoextra)){install.packages("factoextra"); library(factoextra)}
+if(!require(fontawesome)){install.packages("fontawesome"); library(fontawesome)}
+if(!require(e1071)){install.packages("e1071"); library(e1071)}
+if(!require(caret)){install.packages("caret"); library(caret)}
+if(!require(mclust)){install.packages("mclust"); library(mclust)}
+if(!require(GGally)){install.packages("GGally"); library(GGally)}
+if(!require(kableExtra)){install.packages("kableExtra"); library(kableExtra)}
 knitr::opts_chunk$set(echo=FALSE,warning = FALSE,message = FALSE,cache=TRUE)
 load("outlier-dataset.Rdata")
 ```
 
+::: {.alert .alert-secondary role="alert"}
+<a href="https://github.com/yanismicha/Apprentissage_stat" class="alert-link" style = "color:  #72afd2">Lien vers notre git</a>. Vous retrouverez l'ensemble des projets de cet UE sur ce git.
+:::  
+
+Vous trouverez  en haut à droite un interrupteur permettant de passer le rendu en mode sombre/jour à activer selon votre préférence.
 
 ```{r}
 data <- tibble::as_tibble(X)
 data <- mutate(data,cat=y)
+temp <- table(y)
 ```
+
+Ce rapport cherche à évaluer diverses méthodes de détection d'anomalies, sur un jeu de donnée comportent `r nrow(X)` observations et `r ncol(X)` dimensions. Il comporte `r temp[1]` observations normales et `r temp[2]` outliers.
+
+# Présentation des données
+
+Comme on peut le voir dans la @fig-paire_continu qui présente les variables continues, aucune de ces variables ne permet de séparer proprement les outliers.
 
 <details>
 <summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
-```{r,eval=FALSE,echo=TRUE}
-ggplot(data,aes(x = V19,y = V20,color=cat))+geom_point()+ggtitle("Visualisation des outliers")
+```{r,echo=TRUE, eval=FALSE}
+GGally::ggpairs(data.frame(X[,c(1,17:21)]), aes(color=y))
 ```
 </details>
 
-```{r}
-ggplot(data,aes(x = V19,y = V20,color=cat))+geom_point()+ggtitle("Visualisation des outliers")
+:::{#fig-paire_continu}
+```{r, fig.width=15, fig.height=12, message=FALSE, cache=TRUE}
+#ggplot(data,aes(x = V17,y = V20,color=cat))+geom_point()+ggtitle("Visualisation des outliers")
+GGally::ggpairs(data.frame(X[,c(1,17:21)]), aes(color=y))
 ```
 
-# Comparatif courbes roc
-## Local Outlier FActor
+Relation entre les variables continue.
 
-```{r}
+:::
+
+# Comparatif courbes roc
+## Local Outlier Factor
+
+Nous avons en premier lieu testé l'efficacité de l'algorithme `Local Outlier Factor` pour la détection des anomalies dans notre jeu de donné.
+
+L'algorithme consiste pour chaque observation a calculer sa distance avec ces k plus proche voisins. On compare ensuite la moyenne de ces distances, à la moyenne des distances des k voisins initiaux avec chacun de leur k plus proche voisin. Ceci nous permet de calculer un score pour chaque observation qui représente le ratio entre ces 2 distances.
+
+<details>
+<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+```{r, echo=TRUE}
 best_acc <- 0
 best_k <- 0
 for(k in 2:15){
@@ -61,23 +96,38 @@ for(k in 2:15){
 lof <- lof(X,minPts = best_k)
 predicted <- ifelse(lof>= 2,"outlier","normal")
 score<- accuracy(predicted,data$cat)
-score
-
+#print(paste0("Accuracy: ", score, ", k: ",best_k))
 ```
+</details>
+
+Après sélection de la meilleur taille de voisinage k, le meilleur modèle semble être k=`r round(best_k, 0)` qui retourne une accuracy de `r  round(score, 3)`. 
+
 
 ## Isolation Forest
-```{r}
+
+Nous avons ensuite testé la méthode de `l'Isolation Forest`. Cette méthode sépare aléatoirement le jeu de donné en 2 sur une dimension aléatoire. Il répète ce processus pour chaque sous-jeu de donnée jusqu'à isoler une observation. Cette observation devient une feuille de l'arbre et tout le reste du jeu de données devient un nœud. Ce processus peut être répété jusqu'à l'isolation de tous les individus, ou jusqu'à atteindre une profondeur spécifiée. Toutes les feuilles de l'arbre binaire qui en ressort sont donc des observations isolées. Les feuilles en haut de l'arbre sont celles qui ont nécessités le moins de séparations pour être isolé, ont donc plus de chance d'être des outliers.
+Plusieurs arbres de ce type sont construits et les observations qui se retrouvent le plus souvent en haut des arbres sont ceux qui sont désignés comme outliers.
+
+Bien qu'un grand nombre de paramètres existe, comme pour le random forest nous avons ici uniquement testé le nombre d'arbres construit et la distribution du découpage aléatoire.  
+
+<details>  
+<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+```{r, cache=TRUE, echo=TRUE}
 best_acc <- 0
 best_ntrees <- 0
-for(n in c(10,25,50,75,100,150,200)){
-  iso <- isolation.forest(X,ntrees = n)
-  pred <- predict(iso,X)
-  # on affiche comme outlier les 5%de valeurs les plus hautes
-  predicted <- ifelse(pred>quantile(pred, probs = 0.95),"outlier","normal")
-  score_iso <- accuracy(predicted,y)
-  if(score_iso > best_acc){
-    best_acc <- score_iso
-    best_ntrees <- n
+best_coef <- NULL
+for(co in c("uniform","normal")){
+  for(n in seq(10,200,10)){
+    iso <- isolation.forest(X,ntrees = n, coefs = co)
+    pred <- predict(iso,X)
+    # on affiche comme outlier les 5%de valeurs les plus hautes
+    predicted <- ifelse(pred>quantile(pred, probs = 0.95),"outlier","normal")
+    score_iso <- accuracy(predicted,y)
+    if(score_iso > best_acc){
+      best_acc <- score_iso
+      best_ntrees <- n
+      best_coef <- co
+    }
   }
 }
 iso <- isolation.forest(X,ntrees = best_ntrees)
@@ -85,6 +135,71 @@ pred <- predict(iso,X)
 predicted <- ifelse(pred>quantile(pred, probs = 0.95),"outlier","normal")
 score_iso <- accuracy(predicted,y)
 ```
+</details>
+
+Les résultats de ce test montrent que le nombre d'arbres optimal à construire est `r best_ntrees` et la distribution optimale est `r best_coef`. Qui donne une accuracy de `r round(best_acc, 3)`.
+
+
+## One-Class Support vector Machine
+
+Le modèle `SVM` cherche à trouver un hyperplan  qui sépare les observations en classes de manière optimale, i.e en maximisant la marge entre les classes et ce dernier, ce tout en minimisant l'erreur de classification.
+Contrairement au SVM traditionnel qui est une méthode d'apprentissage supervisé, sa variante `One-class SVM` est une méthode non supervisée permettant la détéction d'anomalies. Il n'apprend qu'à partir d'une seule classe, celle qui est la plus représentative ou normale dans les données, et modélise la région d'acceptation qui contient la majorité des données.  
+Nous avons utilisé cette méthode One-class SVM en cherchent les meilleurs paramètres.  
+
+<details>
+<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+```{r svm_param, echo=TRUE, cache=TRUE}
+best_params_auc <- c()
+best_auc <- 0
+best_acc <- 0
+best_params <- c()
+for(gamma in seq(0,1,0.1)){
+  for(kernel in c("polynomial","linear","radial","sigmoid")){
+    for(nu in c(0.01,0.05,0.1,0.15,0.2)){
+      svm <- svm(X,type='one-classification',nu=nu, kernel=kernel,gamma=gamma)
+      pred_svm <- ifelse(predict(svm,X),"normal","outlier")
+      auc_svm <- auc(roc(y,svm$decision.values[,1]))
+      if(auc_svm>best_auc){
+        best_auc <- auc_svm
+        best_params_auc<- c("gamma" = gamma,"kernel" = kernel, "nu" = nu)
+      }
+      if(accuracy(y,pred_svm)>best_acc){
+        best_acc <- accuracy(y,pred_svm)
+        best_params <- c("gamma" = gamma,"kernel" = kernel, "nu" = nu)
+      }
+    }
+  }
+}
+svm <- svm(X,type="one-classification",nu=best_params["nu"],kernel=best_params["kernel"],gamma=best_params["gamma"])
+pred_svm <- predict(svm,X)
+pred_svm <- ifelse(pred_svm,"normal","outlier")
+tab <- caret::confusionMatrix(table(pred_svm,y))
+roc_svm <- roc(y,svm$decision.values[,1])
+```
+</details>
+
+Les meilleurs paramètres pour le SVM semblent être kernel = `r best_params["kernel"]`, nu = `r best_params["nu"]`, gamma = `r best_params["gamma"]`. Avec ces paramètres, le modèle donne une accuracy de `r round(best_acc, 3)`.
+
+
+## Gaussienne multivariée
+
+Le modèle Gaussien cherche à ajuster un modèle Gaussien multivarié sur l'ensemble des variables en estiment les paramètres en maximisant la vraisemblance.
+
+Pour permettre un meilleur fonctionnement du modèle, il sera ajusté uniquement sur les données continues.
+
+<details>
+<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+```{r,echo=TRUE}
+gaus = mclust::Mclust(X[,-c(2:16)], G=2)
+gaus_pred = predict(gaus)
+gaus_acc = sum(ifelse(gaus_pred$classification == 1, "normal", "outlier") == data$cat) / length(data$cat)
+roc_gaus = roc(data$cat,gaus_pred$z[,1])
+```
+</details>
+
+## Comparaison des 4 méthodes
+
+La @fig-roc_normal compare les courbes ROC des 4 modèles. On peut y voir que le modèle Local Outlier Factor semble être notablement plus performent.
 
 <details>  
 <summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
@@ -93,33 +208,73 @@ score_iso <- accuracy(predicted,y)
 roc_lof <- roc(y,-lof)
 roc_iso <- roc(y, -pred)
 # trace les courbes roc
-ggroc(list(LOF=roc_lof,IsolationForest=roc_iso))+ 
-  annotate(geom="text",x = 0.7,y = 0.9,label = paste0("LOF: AUC=",round(auc(roc_lof),2),",ACCURACY=",round(score,2)))+ 
-  annotate(geom="text",x = 0.7,y = 0.8,label = paste0("ISO: AUC=",round(auc(roc_iso),2),",ACCURACY=",round(score_iso,2)))+ ggtitle("Courbe ROC des modèles")
+ggroc(list(LOF = roc_lof, IsolationForest = roc_iso, gaussienne = roc_gaus, SVM = roc_svm))+ 
+  annotate(geom="text",x = 0.3,y = 0.4,label = paste0("LOF: AUC=",round(auc(roc_lof),2),", ACCURACY=",round(score,2)))+ 
+  annotate(geom="text",x = 0.3,y = 0.35,label = paste0("ISO: AUC=",round(auc(roc_iso),2),", ACCURACY=",round(score_iso,2)))+
+  annotate(geom="text",x = 0.3,y = 0.3,label = paste0("Gauss: AUC=",round(auc(roc_gaus),2),", ACCURACY=",round(gaus_acc,2)))+
+  annotate(geom="text",x = 0.3,y = 0.25,label = paste0("SVM: AUC=",round(auc(roc_svm),2),", ACCURACY=",round(tab$overall[1],2)))+
+  ggtitle("Courbe ROC des 4 modèles")
 ```
 </details>
 
+:::{#fig-roc_normal}
 ```{r}
 # on créer un objet roc 
 roc_lof <- roc(y,-lof)
 roc_iso <- roc(y, -pred)
 # trace les courbes roc
-ggroc(list(LOF=roc_lof,IsolationForest=roc_iso))+ 
-  annotate(geom="text",x = 0.7,y = 0.9,label = paste0("LOF: AUC=",round(auc(roc_lof),2),",ACCURACY=",round(score,2)))+ 
-  annotate(geom="text",x = 0.7,y = 0.8,label = paste0("ISO: AUC=",round(auc(roc_iso),2),",ACCURACY=",round(score_iso,2)))+ ggtitle("Courbe ROC des modèles")
+ggroc(list(LOF = roc_lof, IsolationForest = roc_iso, gaussienne = roc_gaus, SVM = roc_svm))+ 
+  annotate(geom="text",x = 0.3,y = 0.4,label = paste0("LOF: AUC=",round(auc(roc_lof),2),", ACCURACY=",round(score,2)))+ 
+  annotate(geom="text",x = 0.3,y = 0.35,label = paste0("ISO: AUC=",round(auc(roc_iso),2),", ACCURACY=",round(score_iso,2)))+
+  annotate(geom="text",x = 0.3,y = 0.3,label = paste0("Gauss: AUC=",round(auc(roc_gaus),2),", ACCURACY=",round(gaus_acc,2)))+
+  annotate(geom="text",x = 0.3,y = 0.25,label = paste0("SVM: AUC=",round(auc(roc_svm),2),", ACCURACY=",round(tab$overall[1],2)))+
+  ggtitle("Courbe ROC des 4 modèles")
 ```
 
+Comparaison des courbes ROC pour l'isolation forest et le local outlier factor.
+
+:::
+
 # Avec standardisation des variables et ACP
-```{r}
-ACP <- PCA(scale(X),graph = FALSE)
+
+Une ACP a été effectuée sur les données standardisées pour voir si cela permet de mieux séparer les outliers.
+
+```{r, include=FALSE}
+ACP <- PCA(scale(X),graph = FALSE,ncp=21)
 #get_eig(ACP) # on garde 10 dimensions
 which.min(get_eig(ACP)[,3]<60)# pour avoir au moins 60%
 dim <- 10
-X_pca <- PCA(scale(X),ncp = 10,graph = FALSE)$ind$coord
+X_pca <- PCA(scale(X),ncp = 21,graph = FALSE)$ind$coord
 ```
 
+On peut voir dans la @fig-PCA que les résultats de l'ACP semble avoir un peu mieux séparé les outliers que dans les données de base présenté dans la @fig-paire_continu.
+
+:::{#fig-PCA}
+
+```{r, fig.width=15, fig.height=7}
+ggpubr::ggarrange(
+fviz_pca_ind(ACP, axes = c(1,2), col.ind = y, geom = "point"),
+fviz_pca_ind(ACP, axes = c(1,3), col.ind = y, geom = "point"),
+fviz_pca_ind(ACP, axes = c(1,4), col.ind = y, geom = "point"),
+fviz_pca_ind(ACP, axes = c(1,5), col.ind = y, geom = "point"),
+fviz_pca_ind(ACP, axes = c(1,17), col.ind = y, geom = "point"),
+fviz_pca_ind(ACP, axes = c(1,18), col.ind = y, geom = "point"),
+fviz_pca_ind(ACP, axes = c(1,19), col.ind = y, geom = "point"),
+fviz_pca_ind(ACP, axes = c(1,20), col.ind = y, geom = "point"),
+fviz_pca_ind(ACP, axes = c(1,21), col.ind = y, geom = "point"),
+common.legend = TRUE, legend = "bottom")
+```
+
+Résultat d'une ACP sur les données.
+
+:::
+
+Nous allons donc retenter les 4 méthodes sur les dimensions retourné par l'ACP.
+
 ## LOF
-```{r}
+<details>  
+<summary style="font-weight: bold; color: #72afd2;">LOF sur ACP</summary>
+```{r, echo=TRUE}
 best_acc <- 0
 best_k <- 0
 for(k in 2:15){
@@ -133,106 +288,252 @@ for(k in 2:15){
 }
 
   
-lof <- lof(X_pca,minPts = best_k)
-predicted <- ifelse(lof>= 2,"outlier","normal")
-score<- accuracy(predicted,data$cat)
-score
-```
-
-## Isolation Forest
-```{r}
-best_acc <- 0
-best_ntrees <- 0
-for(n in c(10,25,50,75,100,150,200)){
-  iso <- isolation.forest(X_pca,ntrees = n)
-  pred <- predict(iso,X)
-  # on affiche comme outlier les 5%de valeurs les plus hautes
-  predicted <- ifelse(pred>quantile(pred, probs = 0.95),"outlier","normal")
-  score_iso <- accuracy(predicted,y)
-  if(score_iso > best_acc){
-    best_acc <- score_iso
-    best_ntrees <- n
-  }
-}
-model_forest <- isolation.forest(X_pca,ntrees = best_ntrees)
-pred <- predict(model_forest,X)
-predicted <- ifelse(pred>quantile(pred, probs = 0.95),"outlier","normal")
-score_iso <- accuracy(predicted,y)
-```
-
-<details>
-<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
-```{r,eval=FALSE,echo=TRUE}
-# on créer un objet roc 
-roc_lof_acp <- roc(y,-lof)
-roc_iso_acp <- roc(y, -pred)
-# trace les courbes roc
-ggroc(list(LOF=roc_lof_acp,IsolationForest=roc_iso_acp))+ 
-  annotate(geom="text",x = 0.7,y = 0.9,label = paste0("LOF: AUC=",round(auc(roc_lof_acp),2),",ACCURACY=",round(score,2)))+ 
-  annotate(geom="text",x = 0.7,y = 0.8,label = paste0("ISO: AUC=",round(auc(roc_iso_acp),2),",ACCURACY=",round(score_iso,2)))+ ggtitle("Courbes ROC des modèles sur ACP normalisé")
+lof_pca <- lof(X_pca,minPts = best_k)
+predicted <- ifelse(lof_pca>= 2,"outlier","normal")
+score_lof_pca<- accuracy(predicted,data$cat)
+score_lof_pca
 ```
 </details>
 
-  
+On peut voir dans la @fig-roc_lof_pca que la projection des données avec à l'ACP a permit d'améliorer la performance du Local Outlier Factor.
+
+:::{#fig-roc_lof_pca} 
+
 ```{r}
-# on créer un objet roc 
-roc_lof_acp <- roc(y,-lof)
-roc_iso_acp <- roc(y, -pred)
-# trace les courbes roc
-ggroc(list(LOF=roc_lof_acp,IsolationForest=roc_iso_acp))+ 
-  annotate(geom="text",x = 0.7,y = 0.9,label = paste0("LOF: AUC=",round(auc(roc_lof_acp),2),",ACCURACY=",round(score,2)))+ 
-  annotate(geom="text",x = 0.7,y = 0.8,label = paste0("ISO: AUC=",round(auc(roc_iso_acp),2),",ACCURACY=",round(score_iso,2)))+ ggtitle("Courbes ROC des modèles sur ACP normalisé")
+ggroc(list(LOF = roc_lof, "LOF ACP" = roc(y,lof_pca)))+ 
+  annotate(geom="text",x = 0.3,y = 0.4,label = paste0("LOF: AUC=",round(auc(roc_lof),2),", ACCURACY=",round(score,2)))+ 
+  annotate(geom="text",x = 0.3,y = 0.35,label = paste0("LOF ACP: AUC=",round(auc(roc(y,lof_pca)),2),", ACCURACY=",round(score_lof_pca,2)))
 ```
 
+Comparaison des courbes ROC pour les modèles Local Outlier Factor avec et sens ACP
 
-# Comparaison avec Svm et gaussienne 
-## Support vector Machine
+:::
+
+## Isolation Forest
+
+La @fig-roc_iso_pca montre que la projection des données avec à l'ACP n'a pas permis l'amélioration des performances de l'Isolation Forest.
+
+<details>  
+<summary style="font-weight: bold; color: #72afd2;">Isolation Forest sur ACP</summary>
+```{r, cache=TRUE, echo=TRUE}
+best_acc <- 0
+best_ntrees <- 0
+best_coef <- NULL
+for(co in c("uniform","normal")){
+  for(n in seq(10,200,10)){
+    iso <- isolation.forest(X_pca,ntrees = n, coefs = co)
+    pred <- predict(iso,X)
+    # on affiche comme outlier les 5%de valeurs les plus hautes
+    predicted <- ifelse(pred>quantile(pred, probs = 0.95),"outlier","normal")
+    score_iso <- accuracy(predicted,y)
+    if(score_iso > best_acc){
+      best_acc <- score_iso
+      best_ntrees <- n
+      best_coef <- co
+    }
+  }
+}
+model_forest <- isolation.forest(X_pca,ntrees = best_ntrees, coefs = best_coef)
+pred <- predict(model_forest,X_pca)
+predicted <- ifelse(pred>quantile(pred, probs = 0.95),"outlier","normal")
+score_iso_pca <- accuracy(predicted,y)
+```
+</details>
+
+:::{#fig-roc_iso_pca} 
+
 ```{r}
+ggroc(list(IsolationForest = roc_iso, "IsolationForest ACP" = roc(y, pred)))+ 
+  annotate(geom="text",x = 0.3,y = 0.4,label = paste0("ISO: AUC=",round(auc(roc_iso),2),", ACCURACY=",round(score_iso,2)))+ 
+  annotate(geom="text",x = 0.3,y = 0.35,label = paste0("ISO ACP: AUC=",round(auc(roc(y, pred)),2),", ACCURACY=",round(score_iso_pca,2)))
+```
+
+Comparaison des courbes ROC pour les modèles IsolationForest avec et sans ACP
+
+:::
+
+
+## One-Class SVM
+<details>  
+<summary style="font-weight: bold; color: #72afd2;">One-Class SVM sur ACP</summary>
+```{r svm_param_pca, echo=TRUE, cache=TRUE}
 best_params_auc <- c()
 best_auc <- 0
 best_acc <- 0
 best_params <- c()
 for(gamma in seq(0,1,0.1)){
   for(kernel in c("polynomial","linear","radial","sigmoid")){
-    svm <- svm(X,type='one-classification',nu=0.05,kernel=kernel,gamma=gamma)
-    pred_svm <- ifelse(predict(svm,X),"normal","outlier")
-    auc_svm <- auc(roc(y,svm$decision.values[,1]))
-    if(auc_svm>best_auc){
-      best_auc <- auc_svm
-      best_params_auc<- c(paste0("gamma=",gamma),paste0("kernel=",kernel))
-    }
-    if(accuracy(y,pred_svm)>best_acc){
-      best_acc <- accuracy(y,pred_svm)
-      best_params <- c(paste0("gamma=",gamma),paste0("kernel=",kernel))
+    for(nu in c(0.01,0.05,0.1,0.15,0.2)){
+      svm_pca <- svm(X_pca,type='one-classification',nu=nu, kernel=kernel,gamma=gamma)
+      pred_svm <- ifelse(predict(svm_pca,X_pca),"normal","outlier")
+      if(length(table(pred_svm)) > 1 & accuracy(y,pred_svm)>best_acc){
+        best_acc <- accuracy(y,pred_svm)
+        best_params <- c("gamma" = gamma,"kernel" = kernel, "nu" = nu)
+      }
     }
   }
 }
-best_params
-
+svm_pca = svm(X_pca,type='one-classification',nu=best_params["nu"], kernel=best_params["kernel"],gamma=best_params["gamma"])
+pred_svm_pca <- predict(svm_pca,X_pca)
+pred_svm_pca <- ifelse(pred_svm_pca,"normal","outlier")
+tab_svm_pca <- caret::confusionMatrix(table(pred_svm_pca,y))
 ```
+</details>
+
+Les meilleurs paramètres pour les données de l'ACP semblent être kernel = `r best_params["kernel"]`, nu = `r best_params["nu"]`, gamma = `r best_params["gamma"]`. Avec ces paramètres, le modèle donne une accuracy de `r round(best_acc, 3)`. On remarquera que ce sont les mêmes paramètres que le meilleur modèle pour les données originales.
+
+Bien que l'utilisation de l'ACP a permis d'augmenter l'AUC du SVM, il ne semble pas avoir eu d'effet sur son accuracy (@fig-roc_svm_pca).
+
+:::{#fig-roc_svm_pca} 
 
 ```{r}
-svm <- svm(X,type="one-classification",nu=0.05,kernel="radial",gamma=0.1)
-pred_svm <- predict(svm,X)
-pred_svm <- ifelse(pred_svm,"normal","outlier")
-tab <- caret::confusionMatrix(table(pred_svm,y))
-roc_svm <- roc(y,svm$decision.values[,1])
-ggroc(list(SVM=roc_svm))+annotate("text",x= 0.7,y=0.8,label = paste0("AUC=",round(auc(roc_svm),2)))+ggtitle("Courbe ROC des modèles")
+ggroc(list(SVM = roc_svm, "SVM ACP" = roc(y,svm_pca$decision.values[,1])))+ 
+  annotate(geom="text",x = 0.3,y = 0.4,label = paste0("SVM: AUC=",round(auc(roc_svm),2),", ACCURACY=",round(tab$overall[1],2)))+ 
+  annotate(geom="text",x = 0.3,y = 0.35,label = paste0("SVM ACP: AUC=",round(auc(roc(y,svm_pca$decision.values[,1])),2),", ACCURACY=",round(tab_svm_pca$overall[1],2)))
 ```
+
+Comparaison des courbes ROC pour les modèles SVM avec et sans ACP
+
+:::
+
+
+## Gaussienne multivariée
+
+<details>  
+<summary style="font-weight: bold; color: #72afd2;">Gaussienne multivariée sur ACP</summary>
+```{r,echo=TRUE}
+gaus_pca = mclust::Mclust(X_pca, G=2)
+gaus_pred_pca = predict(gaus_pca)
+gaus_acc_pca = sum(ifelse(gaus_pred_pca$classification == 1, "normal", "outlier") == data$cat) / length(data$cat)
+roc_gaus_pca = roc(data$cat,gaus_pred_pca$z[,1])
+```
+</details>
+
+Comme le montre la @fig-roc_gauss_pca l'utilisation de l'ACP semble avoir grandement réduit l'accuracy et l'AUC du modèle Gaussien.
+
+:::{#fig-roc_gauss_pca} 
+
+```{r}
+ggroc(list("Gauss" = roc_gaus, "Gauss ACP" = roc_gaus_pca))+ 
+  annotate(geom="text",x = 0.3,y = 0.4,label = paste0("SVM: AUC=",round(auc(roc_gaus),2),", ACCURACY=",round(gaus_acc,2)))+ 
+  annotate(geom="text",x = 0.3,y = 0.35,label = paste0("SVM ACP: AUC=",round(auc(roc_gaus_pca),2),", ACCURACY=",round(gaus_acc_pca,2)))
+```
+
+Comparaison des courbes ROC pour les modèles Gaussienne multivariée avec et sens ACP
+
+:::
+
+## Comparaison des 4 méthodes avec ACP
+
+On peut voir dans la @fig-roc_pca que l'utilisation l'ACP à amélioré l'accuracy et l'AUC du Local Outlier Factor, mais à grandement réduit les performances de L'Isolation Forest.
+
+<details>
+<summary style="font-weight: bold; color: #72afd2;">Voir le code</summary>
+```{r,eval=FALSE,echo=TRUE}
+# on créer un objet roc 
+roc_lof_acp <- roc(y,-lof_pca)
+roc_iso_acp <- roc(y, -pred)
+roc_svm_pca <- roc(y,svm_pca$decision.values[,1])
+roc_gaus_pca <- roc(data$cat,gaus_pred_pca$z[,2])
+# trace les courbes roc
+ggroc(list(LOF=roc_lof_acp,IsolationForest=roc_iso_acp, SVM = roc_svm_pca, Gaussian = roc_gaus_pca))+ 
+  annotate(geom="text",x = 0.7,y = 0.9,label = paste0("LOF: AUC=",round(auc(roc_lof_acp),2),", ACCURACY=",round(score_lof_pca,2)))+ 
+  annotate(geom="text",x = 0.7,y = 0.8,label = paste0("ISO: AUC=",round(auc(roc_iso_acp),2),", ACCURACY=",round(score_iso_pca,2)))+ 
+  annotate(geom="text",x = 0.7,y = 0.8,label = paste0("SVM: AUC=",round(auc(roc_svm_pca),2),", ACCURACY=",round(tab_svm_pca$overall[1],2)))+
+  annotate(geom="text",x = 0.7,y = 0.8,label = paste0("Gauss: AUC=",round(auc(roc_gaus_pca),2),", ACCURACY=",round(gaus_acc_pca,2)))+
+  ggtitle("Courbes ROC des modèles sur ACP normalisé")
+```
+</details>
+
+:::{#fig-roc_pca}
+  
+```{r}
+# on créer un objet roc 
+roc_lof_acp <- roc(y,-lof_pca)
+roc_iso_acp <- roc(y, -pred)
+roc_svm_pca <- roc(y,svm_pca$decision.values[,1])
+roc_gaus_pca <- roc(data$cat,gaus_pred_pca$z[,2])
+# trace les courbes roc
+ggroc(list(LOF=roc_lof_acp,IsolationForest=roc_iso_acp, SVM = roc_svm_pca, Gaussian = roc_gaus_pca))+ 
+  annotate(geom="text",x = 0.3,y = 0.4,label = paste0("LOF: AUC=",round(auc(roc_lof_acp),2),", ACCURACY=",round(score_lof_pca,2)))+ 
+  annotate(geom="text",x = 0.3,y = 0.35,label = paste0("ISO: AUC=",round(auc(roc_iso_acp),2),", ACCURACY=",round(score_iso_pca,2)))+ 
+  annotate(geom="text",x = 0.3,y = 0.3,label = paste0("SVM: AUC=",round(auc(roc_svm_pca),2),", ACCURACY=",round(tab_svm_pca$overall[1],2)))+
+  annotate(geom="text",x = 0.3,y = 0.25,label = paste0("Gauss: AUC=",round(auc(roc_gaus_pca),2),", ACCURACY=",round(gaus_acc_pca,2)))+
+  ggtitle("Courbes ROC des modèles sur ACP normalisé")
+```
+
+Comparaison des courbes ROC pour les 4 modèles avec l'ACP.
+
+:::
 
 
 ```{r}
-ggroc(list(LOF=roc_lof,IsolationForest=roc_iso,SVM = roc_svm))+ 
-  annotate(geom="text",x = 0.7,y = 0.9,label = paste0("LOF: AUC=",round(auc(roc_lof),2),",ACCURACY=",round(score,2)))+ 
-  annotate(geom="text",x = 0.7,y = 0.85,label = paste0("ISO: AUC=",round(auc(roc_iso),2),",ACCURACY=",round(score_iso,2)))+ 
-  annotate(geom="text",x = 0.7,y = 0.8,label = paste0("SVM: AUC=",round(auc(roc_svm),2),",ACCURACY=",round(tab$overall[1],2)))+ggtitle("Courbes ROC des modèles")
+temp = data.frame("LOF" = c(auc(roc_lof), auc(roc_lof_acp),score, score_lof_pca), 
+                  "ISO" = c(auc(roc_iso),auc(roc_iso_acp), score_iso,score_iso_pca), 
+                  "SVM" = c(auc(roc_svm),auc(roc_svm_pca), tab$overall[1], tab_svm_pca$overall[1]), 
+                  "Gaussien" = c(auc(roc_gaus),auc(roc_gaus_pca),gaus_acc, gaus_acc_pca))
+rownames(temp) = c("AUC sans ACP", "AUC avec ACP", "Accuracy sans ACP", "Accuracy avec ACP")
+kbl(round(temp,3), caption = "Table 1: Comparaison des résultats.", align = "c")
 ```
 
+En regardant la @fig-roc_pca et la Table 1, on peut voir que l'utilisation de l'ACP semble avoir globalement augmenté les performances du Local Outlier Factor et légèrement celle de l'Isolation Forest.
+Pour le SVM, bien que l'utilisation de ACP augmente l'AUC, il diminue très faiblement l'accuracy.
+Pour finir, on peut voir que l'utilisation de l'ACP diminue fortement la performance du modèle Gaussien.
+
+# Comparaison des meilleurs modèles
+
+Du fait du grand déséquilibre entre les classes, la sélection du meilleur modèle s'est faite sur le critère de l'AUC.
+
+:::{#fig-roc_tout_model}
+
+```{r}
+ggroc(list("LOF ACP"=roc_lof_acp,"IsolationForest ACP"=roc_iso_acp,"SVM ACP"= roc_svm_pca, Gauss = roc_gaus))+ 
+  annotate(geom="text",x = 0.3,y = 0.4,label = paste0("LOF ACP: AUC=",round(auc(roc_lof_acp),2),", ACCURACY=",round(score,2)))+ 
+  annotate(geom="text",x = 0.3,y = 0.35,label = paste0("ISO ACP: AUC=",round(auc(roc_iso_acp),2),", ACCURACY=",round(score_iso_pca,2)))+ 
+  annotate(geom="text",x = 0.3,y = 0.3,label = paste0("SVM ACP: AUC=",round(auc(roc_svm_pca),2),", ACCURACY=",round(tab_svm_pca$overall[1],2)))+
+  annotate(geom="text",x = 0.3,y = 0.25,label = paste0("Gauss: AUC=",round(auc(roc_gaus),2),", ACCURACY=",round(gaus_acc,2)))+
+  ggtitle("Courbes ROC des 4 meilleurs modèles")
+```
+
+Comparaison des courbes ROC de tous les meilleurs modèles.
+
+:::
 
 
+```{r, eval=FALSE}
+spectral_matrix = function(x, sigma, norm = TRUE, nb_var = NULL){
+  A <- as.matrix(proxy::dist(x, function(si, sj) {exp(-sum((si - sj)^2) / (2 * sigma^2))}, auto_convert_data_frames = TRUE))
+  D <- solve(sqrt(diag(rowSums(A))))
+  rm(A)
+  # 2.2: on calcul a matrice laplacienne
+  L <- D%*%A%*%D
+  rm(D)
+  # 3.1: on recupère les valeurs et vecteurs propres
+  X <- eigen(L,symmetric = TRUE)
+  # 3.2: on construit la matrice X
+  if(is.null(nb_var)){
+    X <- X[[2]]
+  } else {
+    X <- X[[2]][,1:nb_var]
+  }
+  # 4: on normalise la matrice X
+  if(norm){
+    X <- t(apply(X, 1, function(row) row / sqrt(sum(row^2))))
+  }
+  if(!"dist" %in% class(X)){
+    class(X) <- c(class(X), "dist")
+  }
+  return(X)
+}
+  
+```
 
-
-
-
-
+```{r, eval=FALSE}
+temp = svm(X,type='one-classification',nu=0.01, kernel="sigmoid",gamma=0.4)
+temp2 <- caret::confusionMatrix(table(ifelse(predict(temp,X),"normal","outlier"),y))
+temp2 = predict(temp,X)
+sum(temp2) * 100 / length(temp2)
+accuracy(ifelse(temp2 == TRUE, "normal", "outlier"),data$cat)
+temp3 = Mclust(X[,1], G=2,model="V")
+```
 
