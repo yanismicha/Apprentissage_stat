@@ -31,15 +31,18 @@ if(!require(caret)){install.packages("caret"); library(caret)}
 if(!require(mclust)){install.packages("mclust"); library(mclust)}
 if(!require(GGally)){install.packages("GGally"); library(GGally)}
 if(!require(kableExtra)){install.packages("kableExtra"); library(kableExtra)}
+if(!require(fontawesome)){install.packages("fontawesome");library(fontawesome)}
 knitr::opts_chunk$set(echo=FALSE,warning = FALSE,message = FALSE,cache=TRUE)
 load("outlier-dataset.Rdata")
 ```
 
 ::: {.alert .alert-secondary role="alert"}
-<a href="https://github.com/yanismicha/Apprentissage_stat" class="alert-link" style = "color:  #72afd2">Lien vers notre git</a>. Vous retrouverez l'ensemble des projets de cet UE sur ce git.
+<a href="https://github.com/yanismicha/Apprentissage_stat" class="alert-link" style = "color:  #72afd2"><i class="fa-brands fa-github fa-bounce fa-xl" style="--fa-animation-duration: 2s;"></i></a>. Vous retrouverez l'ensemble des projets de cet UE sur ce git.
 :::  
 
 Vous trouverez  en haut à droite un interrupteur permettant de passer le rendu en mode sombre/jour à activer selon votre préférence.
+
+# Introduction
 
 ```{r}
 data <- tibble::as_tibble(X)
@@ -47,9 +50,10 @@ data <- mutate(data,cat=y)
 temp <- table(y)
 ```
 
-Ce rapport cherche à évaluer diverses méthodes de détection d'anomalies, sur un jeu de donnée comportent `r nrow(X)` observations et `r ncol(X)` dimensions. Il comporte `r temp[1]` observations normales et `r temp[2]` outliers.
+Ce rapport cherche à évaluer diverses méthodes de détection d'anomalies, sur un jeu de donnée comportant `r nrow(X)` observations et `r ncol(X)` dimensions. Il comporte `r temp[1]` observations normales et `r temp[2]` outliers.  
+L'objectif étant d'optimiser les différents modèles proposés à travers un ajustements de divers hyperparamètres puis de comparer ces modèles "optimaux" entre eux.
 
-# Présentation des données
+## Présentation des données
 
 Comme on peut le voir dans la @fig-paire_continu qui présente les variables continues, aucune de ces variables ne permet de séparer proprement les outliers.
 
@@ -103,7 +107,7 @@ score<- accuracy(predicted,data$cat)
 Après sélection de la meilleur taille de voisinage k, le meilleur modèle semble être k=`r round(best_k, 0)` qui retourne une accuracy de `r  round(score, 3)`. 
 
 
-## Isolation Forest
+## Isolation Forest <i class="fa-solid fa-tree fa-fade" style= "--fa-animation-duration: 4s;"></i>
 
 Nous avons ensuite testé la méthode de `l'Isolation Forest`. Cette méthode sépare aléatoirement le jeu de donné en 2 sur une dimension aléatoire. Il répète ce processus pour chaque sous-jeu de donnée jusqu'à isoler une observation. Cette observation devient une feuille de l'arbre et tout le reste du jeu de données devient un nœud. Ce processus peut être répété jusqu'à l'isolation de tous les individus, ou jusqu'à atteindre une profondeur spécifiée. Toutes les feuilles de l'arbre binaire qui en ressort sont donc des observations isolées. Les feuilles en haut de l'arbre sont celles qui ont nécessités le moins de séparations pour être isolé, ont donc plus de chance d'être des outliers.
 Plusieurs arbres de ce type sont construits et les observations qui se retrouvent le plus souvent en haut des arbres sont ceux qui sont désignés comme outliers.
@@ -309,7 +313,7 @@ Comparaison des courbes ROC pour les modèles Local Outlier Factor avec et sens 
 
 :::
 
-## Isolation Forest
+## Isolation Forest <i class="fa-solid fa-tree fa-fade" style= "--fa-animation-duration: 4s;"></i>
 
 La @fig-roc_iso_pca montre que la projection des données avec à l'ACP n'a pas permis l'amélioration des performances de l'Isolation Forest.
 
@@ -480,7 +484,9 @@ En regardant la @fig-roc_pca et la Table 1, on peut voir que l'utilisation de l'
 Pour le SVM, bien que l'utilisation de ACP augmente l'AUC, il diminue très faiblement l'accuracy.
 Pour finir, on peut voir que l'utilisation de l'ACP diminue fortement la performance du modèle Gaussien.
 
-# Comparaison des meilleurs modèles
+# Conclusion
+
+## Comparaison des meilleurs modèles
 
 Du fait du grand déséquilibre entre les classes, la sélection du meilleur modèle s'est faite sur le critère de l'AUC.
 
@@ -500,6 +506,9 @@ Comparaison des courbes ROC de tous les meilleurs modèles.
 :::
 
 
+## <i class="fa-solid fa-signs-post fa-flip" style="--fa-animation-duration: 4s;"></i>  Pistes annexes  
+{{< fa solid circle-arrow-right >}} En plus de la comparaison d'un certain de nombre de modèles, nous avons également tenté d'appliquer l'utilisation de matrice spectral à ces différents modèles, mais cela n'a pas aboutit à de meilleurs performances. L'application de cette dernière  ne parait pas adapté à la détéction d'outliers.  
+Afin d'obtenir de meilleurs performances sur nos modèles, nous pourrions également ajuster d'autres hyperparamères qui pourrait avoir une importance pour ce jeu de donnée.
 ```{r, eval=FALSE}
 spectral_matrix = function(x, sigma, norm = TRUE, nb_var = NULL){
   A <- as.matrix(proxy::dist(x, function(si, sj) {exp(-sum((si - sj)^2) / (2 * sigma^2))}, auto_convert_data_frames = TRUE))
@@ -536,4 +545,5 @@ sum(temp2) * 100 / length(temp2)
 accuracy(ifelse(temp2 == TRUE, "normal", "outlier"),data$cat)
 temp3 = Mclust(X[,1], G=2,model="V")
 ```
+
 
