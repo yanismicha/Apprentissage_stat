@@ -505,6 +505,8 @@ Comparaison des courbes ROC de tous les meilleurs modèles.
 
 :::
 
+On peut donc conclure que dans la majorité des cas d'utilisation de l'ACP permet aux algorithmes une meilleure détection des anomalie ce-ci n'est pas forcément vrais pour tous les algorithmes. On conclura que le SVM avec ACP est le meilleur algorithme de détection d'anomalie pour notre jeu de donnée. Même si l'AUC du modèle Gaussien est supérieur à celui du SVM, le SVM à une accuracy bien supérieur.
+
 
 ## <i class="fa-solid fa-signs-post fa-flip" style="--fa-animation-duration: 4s;"></i>  Pistes annexes  
 {{< fa solid circle-arrow-right >}} En plus de la comparaison d'un certain de nombre de modèles, nous avons également tenté d'appliquer l'utilisation de matrice spectral à ces différents modèles, mais cela n'a pas aboutit à de meilleurs performances. L'application de cette dernière  ne parait pas adapté à la détéction d'outliers.  
