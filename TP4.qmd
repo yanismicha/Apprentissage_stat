@@ -1,0 +1,96 @@
+---
+title: "TP4"
+author: "Yanis Micha"
+format: html
+---
+
+# Exercice 1: courbes ROC
+```{r}
+require(ROCR)
+require(ggplot2)
+require(pROC)
+load("DataTp4/tp-4_exo-1.Rdata")
+```
+
+```{r}
+head(data)
+```
+
+## 2
+```{r}
+for(i in 1:3){
+  data[[paste0("cat",i)]] <- ifelse(data[[paste0("score",i)]]>=0,1,0)
+}
+TP <- nrow(data[data$label==1 & data$cat1==1,])
+FP <- nrow(data[data$label==0 & data$cat1==1,])
+TN <- nrow(data[data$label==0 & data$cat1==0,])
+FN <-  nrow(data[data$label==1 & data$cat1==0,])
+cont1 <- table(data$label,data$cat1)
+cont2 <- table(data$label,data$cat2)
+cont3 <- table(data$label,data$cat3)
+sensi1 <- cont1[2,2]/(cont1[2,2]+cont1[2,1])
+sensi2 <- cont2[2,2]/(cont2[2,2]+cont2[2,1])
+sensi3 <- cont3[2,2]/(cont3[2,2]+cont3[2,1])
+speci1 <- cont1[1,1]/(cont1[1,1]+cont1[1,2])
+speci2 <- cont2[1,1]/(cont2[1,1]+cont2[1,2])
+speci3 <- cont3[1,1]/(cont3[1,1]+cont3[1,2])
+
+for(i in 1:3){
+  cat("*** Sensibilité du",i,ifelse(i==1,"er","eme"),"classifieur:", get(paste0("sensi",i))*100,"%","***\n")
+  cat("*** Spécificité du",i,ifelse(i==1,"er","eme"),"classifieur:",get(paste0("speci",i))*100,"%","***\n")
+}
+```
+
+## 3 courbes ROC 
+
+```{r}
+pred1 <- prediction(data$score1,data$label, label.ordering = c(0,1))
+pred2 <- prediction(data$score2,data$label, label.ordering = c(0,1))
+pred3 <- prediction(data$score3,data$label, label.ordering = c(0,1))
+perf.roc = performance(pred1, measure = "tpr", x.measure
+= "fpr")
+plot(perf.roc, main = "ROC curve")
+roc.df <- data.frame(fpr = perf.roc@x.values[[1]], tpr = perf.roc@y.values[[1]])
+fig <- ggplot(roc.df,aes(x = fpr, y = tpr)) +
+  geom_line(color="steelblue") +
+  geom_point(x = 1-speci1,y=sensi1,color="steelblue")+
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed") + 
+  labs(x = "Taux de faux positifs", y = "Taux de vrais positifs", title = "Courbe ROC")
+
+for(i in c(2,3)){
+  perf.roc = performance(get(paste0("pred",i)), measure = "tpr", x.measure
+= "fpr")
+  roc.df <- data.frame(fpr = perf.roc@x.values[[1]], tpr = perf.roc@y.values[[1]])
+  fig <- fig+
+    geom_line(data = roc.df,aes(x = fpr, y = tpr),color=i)+
+    geom_point(x = 1-get(paste0("speci",i)),y = get(paste0("sensi",i)),color=i)
+}
+fig
+perf.auc = performance(pred1, measure = "auc")
+auc = perf.auc@y.values[[1]]
+
+
+```
+
+```{r}
+fig+geom_vline(xintercept = 1-speci1,color="steelblue")+geom_hline(yintercept = sensi1,color="steelblue")+
+geom_vline(xintercept = 1-speci2,color=2)+geom_hline(yintercept = sensi2,color=2)+
+geom_vline(xintercept = 1-speci3,color=3)+geom_hline(yintercept = sensi3,color=3)  
+
+# plus simple avec ggroc
+roc1 <- roc(data$label, data$score1)
+roc2 <- roc(data$label, data$score2)
+roc3 <- roc(data$label,data$score3)
+
+fig2 <- ggroc(list(roc_classe1 = roc1, roc_classe2 = roc2,roc_classe3 = roc3))+
+  ggtitle(paste0("ROC Curve ", "(AUC1 = ", auc(roc1), ", AUC2 = ", auc(roc2),", AUC3 = ", auc(roc3),")"))
+
+fig2
+```
+
+
+# Exercice 2 : classification par k plus proches voisins
+
+
+
+

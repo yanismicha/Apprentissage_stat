@@ -7,3 +7,5 @@ factoextra
 kableExtra
 dbscan
 FNN
+FactoMineR
+visdat

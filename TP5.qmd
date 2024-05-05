@@ -1,0 +1,316 @@
+---
+title: "TP5"
+author: "Yanis Micha"
+date: "04/03/2024"
+format: html
+---
+
+```{r}
+require(ggplot2)
+require(MASS)
+require(caret)
+require(e1071)
+require(class)
+require(pROC)
+require(dplyr)
+load("tp5-exo.Rdata")
+```
+
+# CLasssifieurs
+```{r}
+test <- data.frame(x1=X.test[,1],x2=X.test[,2],y=y.test)
+train <- data.frame(x1=X.train[,1],x2=X.train[,2],y = y.train)
+ggplot(data = test,aes(x=x1,y=x2,color=y),pch=19)+
+  geom_point()+
+  geom_point(data= train,aes(x = x1,y=x2,color=y),pch=1)
+```
+
+## Approche LDA
+
+```{r}
+model <- lda(y~.,data=train)
+pred <- predict(model,test)
+gridExtra::grid.arrange(ggplot(test,aes(y = pred1,fill=y))+geom_boxplot()+geom_hline(yintercept = 0.5,colour="darkred",linetype="dotted"),ggplot(test,aes(y = pred2,fill=y))+geom_boxplot()+geom_hline(yintercept = 0.5,colour="darkred",linetype="dotted"))
+
+roc11<- roc(test$y,pred$posterior[,1])
+roc21 <- roc(test$y,pred$posterior[,2])
+```
+### Matrice de confusion
+```{r}
+caret::confusionMatrix(table(pred$class,test$y))
+```
+
+## 3 Approche QDA
+```{r}
+model_qda <- qda(y~.,data=train)
+pred <- predict(model_qda,test)
+gridExtra::grid.arrange(ggplot(test,aes(y = pred1,fill=y))+geom_boxplot()+geom_hline(yintercept = 0.5,colour="darkred",linetype="dotted"),ggplot(test,aes(y = pred2,fill=y))+geom_boxplot()+geom_hline(yintercept = 0.5,colour="darkred",linetype="dotted"))
+roc12<- roc(test$y,pred$posterior[,1])
+roc22 <- roc(test$y,pred$posterior[,2])
+```
+
+### Matrice de confusion
+```{r}
+caret::confusionMatrix(table(pred$class,test$y))
+```
+
+## 4 régréssion logistique
+```{r}
+fit <- glm(y ~ ., data = train, family = "binomial")
+
+pred <- predict(fit, newdata = test[,c(1,2)], type ="response")
+
+test$pred <- factor(ifelse(pred>=0.5,2,1))
+caret::confusionMatrix(table(test$pred,test$y))
+
+pred <- predict(fit,test[,c(1,2)])
+roc3<- roc(test$y,pred)
+```
+
+## 5 classification naïve bayesienne
+```{r}
+model <- naiveBayes(y ~ .,data = train)
+pred <- predict(model,newdata = test[,c(1,2)],type= "raw")
+
+test$pred <- factor(ifelse(pred[,1]>pred[,2],1,2))
+caret::confusionMatrix(table(test$pred,test$y))
+
+roc41<- roc(test$y,pred[,1])
+roc42 <- roc(test$y,pred[,2])
+```
+
+
+## 6  K PLUS PROCHE VOISINS
+```{r}
+acc <- 0
+best <- 0
+for(i in 3:15){
+pred_knn <- class::knn(train[,c(1,2)],test[,c(1,2)],train$y,k=i)
+tab <- caret::confusionMatrix(table(pred_knn,test$y))
+   if(acc<tab$overall[1]){
+     acc <- tab$overall[1]
+     best <- i
+   }
+}
+
+pred_knn <- class::knn(train[,c(1,2)],test[,c(1,2)],train$y,k=13)
+caret::confusionMatrix(table(pred_knn,test$y))
+
+```
+## 7 Courbes roc
+```{r}
+knn_mod=knn3Train(X.train, X.test, y.train, k = 12, prob = TRUE)
+score5= attr(knn_mod, "prob")
+roc51 <- roc(test$y,score5[,1])
+roc52 <- roc(test$y,score5[,1])
+ggroc(list(LDA = roc11, QDA = roc12,reglog= roc3,naive_bayes= roc41,knn = roc51))+ 
+  annotate(geom = "text",x = 0.5,y=0.75,label="AUC:")+
+  annotate(geom = "text",x = 0.5,y=0.65,label = paste0("LDA=",auc(roc11),",QDA=",auc(roc12),",REGLOG=",auc(roc3)))+
+  annotate(geom = "text",x = 0.5,y=0.55,label=paste0("NAIVE_BAYES=",auc(roc41),",KNN=",auc(roc51)))
+```
+
+
+
+## 8 
+### Résumés des modèles
+```{r}
+modelda <- lda(y~.,data=train)
+model_qda <- qda(y~.,data = train)
+modelnaif <- naiveBayes(y ~ .,data = train)
+logreg.fit <- glm(y~. ,data = train,family = "binomial")
+```
+
+```{r}
+TailleGrille=300
+grille.x=seq(from = min(X.train[,1]), to = max(X.train[,1]), length.out = TailleGrille)
+grille.y=seq(from = min(X.train[,2]), to = max(X.train[,2]), length.out = TailleGrille)
+grille.df=data.frame(expand.grid(x = grille.x, y = grille.y))
+names(grille.df)=c("x1","x2")
+3
+# Graphique sur lequel rajouter les frontières
+plot(X.train[,1],X.train[,2],xlab = "X1",ylab = "X2",col = y.train, pch =1,main = "Classifieurs")
+# Ajout frontière LDA
+# Attention il faut obtenir : modelda
+prdlda=as.numeric(predict(modelda,grille.df)$class)
+prdqda = as.numeric(predict(model_qda,grille.df)$class)
+# Ajout Moyennes dans les groupes
+points(modelda$means, pch = "+", cex = 3, col = c("black", "red"))
+contour(x=grille.x,y=grille.y,z=matrix(prdlda, nrow = TailleGrille,ncol =TailleGrille)
+,levels = c(1, 2), add=TRUE,drawlabels=FALSE,lwd=3,lty=2,col="green")
+# Ajout frontière QDA
+contour(x = grille.x, y = grille.y, z = matrix(prdqda, nrow = TailleGrille, ncol = TailleGrille),
+levels = c(1, 2), add = TRUE, drawlabels = FALSE,lwd=3,lty=2,col="orange")
+# # Ajout frontière Knn
+# prdknn5=matrix(probknn5, nrow=length(grille.x), ncol=length(grille.y))
+# contour(x = grille.x, y = grille.y, prdknn5, levels = c(1, 2), add = TRUE,
+# drawlabels = FALSE,lwd=3,lty=2,col="darkgreen")
+### Ajout frontière Bayes Naif
+y_pred=predict(modelnaif, newdata=grille.df)
+prdnaif=matrix(y_pred, nrow=length(grille.x), ncol=length(grille.y))
+contour(x = grille.x, y = grille.y, prdnaif, levels = c(1, 2), add = TRUE,
+drawlabels = FALSE,lwd=3,lty=2,col="darkgreen")
+#### Ajout frontière Regression Logistique ####
+y_pred=predict.glm(logreg.fit, newdata=grille.df, type="response")
+prob_logreg=matrix(y_pred, nrow=length(grille.x), ncol=length(grille.y))
+contour(x = grille.x, y = grille.y, prob_logreg, levels = 0.5, add = TRUE,
+drawlabels = FALSE,lwd=3,lty=2,col="darkgreen")
+```
+
+## 9 frontière 
+```{r}
+test$predicted <- predict(logreg.fit, newdata = test, type = "response")
+
+
+x1_grid <- seq(from = min(train$x1), to = max(train$x1), length.out = 300)
+x2_grid <- seq(from = min(train$x2), to = max(train$x2), length.out = 300)
+grid <- expand.grid(x1 = x1_grid, x2 = x2_grid)
+grid$predicted <- predict(logreg.fit, newdata = grid, type = "response")
+
+grid$y <- ifelse(grid$predicted > 0.5,2,1)
+
+ggplot(train, aes(x = x1, y = x2, color = y)) +
+  geom_point() +
+  geom_contour(data = grid, aes(x = x1, y = x2, z = y), bins = 1, color = "black")
+
+
+## Avec les coeffs
+coeffs <- logreg.fit$coefficients
+coeffs
+a <- -coeffs[1]/coeffs[3]
+b <- -coeffs[2]/coeffs[3]
+
+train$reg <- a+b*train$x1
+ggplot(train, aes(x = x1, y = x2, color = y)) +
+  geom_point()+
+  geom_abline(intercept = a, slope = b, color = "darkred",linetype="dotted",size=2)+
+    labs(title = "Frontière de décision de la régression logistique")
+
+```
+
+
+# Application à un jeu de données réelles
+```{r}
+require(palmerpenguins)
+levels(penguins$species)
+head(penguins)
+data<-na.omit(penguins)[,c(1,3,4)]
+kable(head(data))
+```
+## Séparation du jeu de données en train/test
+```{r}
+set.seed(123)
+training.individuals=data$species%>%createDataPartition(p = 0.8,list = FALSE)
+train=data[training.individuals,]
+test=data[-training.individuals,]
+```
+
+## Visualisation des données
+```{r}
+ggplot(train,aes(x = bill_length_mm,y = bill_depth_mm, color = species))+geom_point()
+```
+
+
+## 1: LDA
+```{r}
+model_lda <- lda(species~.,data = train)
+pred_lda <- predict(model_lda,test)
+tab <- table(pred_lda$class,test$species)
+kable(tab)
+roc1<- multiclass.roc(test$species, pred_lda$posterior)
+cat("*** AUC LDA=",round(roc1$auc*100,2),"% ***")
+```
+## 2 QDA
+```{r}
+model_qda <- qda(species~.,data = train)
+pred_qda <- predict(model_qda,test)
+tab <- table(pred_qda$class,test$species)
+confusionMatrix(tab)
+roc2<- multiclass.roc(test$species, pred_qda$posterior)
+cat("*** AUC QDA=",round(roc2$auc*100,2),"% ***")
+```
+## 3 Régression logistique
+```{r}
+logreg.fit <- nnet::multinom(species~. ,data = train,family = "multinomial")
+pred_log <- predict(logreg.fit,newdata = test,type = "probs")
+confusionMatrix(table(predict(logreg.fit,test),test$species))
+roc3<- multiclass.roc(test$species, pred_log)
+cat("*** AUC QDA=",round(roc3$auc*100,2),"% ***")
+```
+
+## 4 classification naive bayesienne
+```{r}
+model_naive <- naiveBayes(species~ ., data = train)
+pred_naive <- predict(model_naive, newdata = test, type = "class")
+confusionMatrix(pred_naive,test$species)
+roc4<- multiclass.roc(test$species, predict(model_naive, newdata = test, type = "raw"))
+cat("*** AUC Naive bayesien=",round(roc4$auc*100,2),"% ***")
+```
+
+## 5 k plus proches voisins
+```{r}
+best_acc <- 0
+best_k <- 0
+for(k in 3:15){
+  model_knn <- knn(train[,2:3],test[,2:3],train$species,k = k)
+  tab <- confusionMatrix(model_knn,test$species)
+  if (tab$overall[[1]]>best_acc){
+    best_acc <- tab$overall[[1]]
+    best_k <- k
+  }
+}
+
+model_knn <- knn(train[,2:3],test[,2:3],train$species,k = 4)
+confusionMatrix(model_knn,test$species)
+knn_mod=knn3Train(train[,2:3],test[,2:3],train$species, k = 4, prob = TRUE)
+score5= attr(knn_mod, "prob")
+roc5<- multiclass.roc(test$species, score5)
+cat("*** AUC knn=",round(roc5$auc*100,2),"% ***")
+```
+
+## Résumés des modèles
+```{r}
+res <- data.frame(model_lda=roc1$auc,model_qda=roc2$auc,reglog=roc3$auc,naive_bayesien=roc4$auc,knn=roc5$auc)
+kable(res)
+cat("*** Le model avec un meilleur AUC est le LDA avec un AUC de ",max(res)*100,"% ***")
+```
+
+## Représentation des frontières sur le jeu de données
+```{r}
+TailleGrille=300
+grille.x=seq(from = min(train$bill_length_mm), to = max(train$bill_length_mm), length.out = TailleGrille)
+grille.y=seq(from = min(train$bill_depth_mm), to = max(train$bill_depth_mm), length.out = TailleGrille)
+grille.df=data.frame(expand.grid(x = grille.x, y = grille.y))
+names(grille.df)=c("bill_length_mm","bill_depth_mm")
+
+prd_lda <- predict(model_lda, grille.df)$class
+prd_qda <- predict(model_qda, grille.df)$class
+
+# Transformation en data frame pour ggplot2
+grille.df$species_lda <- ifelse(prd_lda == "Adelie",1,ifelse(prd_lda == "Chinstrap",2,3))
+grille.df$species_qda <- ifelse(prd_qda == "Adelie",1,ifelse(prd_qda == "Chinstrap",2,3))
+
+
+# Plot avec ggplot2
+means <- data.frame(model_lda$means)
+means$species <- c("Adelie","Chinstrap","Gentoo")
+ggplot() +
+  geom_point(data = train, aes(x = bill_length_mm, y = bill_depth_mm, color = species), size = 1) +
+  geom_point(data = means, aes(x = bill_length_mm, y = bill_depth_mm,color=species), shape = 3, size = 5) +
+  geom_contour(data = grille.df, aes(x = bill_length_mm, y = bill_depth_mm, z = species_lda), color = "grey", linetype = "dashed", size = 1) +
+  geom_contour(data = grille.df, aes(x = bill_length_mm, y = bill_depth_mm, z = species_qda), color = "darkgrey", linetype = "dashed", size = 1) +
+  labs(x = "bill_length_mm", y = "bill_depth_mm", title = "Classifieurs") 
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+

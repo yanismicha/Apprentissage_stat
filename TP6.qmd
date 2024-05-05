@@ -1,0 +1,380 @@
+---
+title: "TP6"
+author: "Yanis Micha"
+format: html
+---
+
+```{r}
+require(glmnet)
+require(car)
+require(FactoMineR)
+require(factoextra)
+require(kableExtra)
+require(amanpg)
+require(dplyr)
+require(tidyverse)
+require(gridExtra)
+data <- read.csv2("Autos.csv",sep = ";")
+rownames(data)<- data$AUTO
+data <- data[,-1]
+kable(head(data))
+Y <- data$PRIX
+X <- data[,-Y]
+
+```
+
+```{r}
+data$NAT <- factor(data$NAT)
+data$FINITION <- factor(data$FINITION)
+summary(data)
+```
+
+```{r}
+data <- data[,-c(7,8)]
+```
+
+## Regression linéaire multiple
+
+**(A)**:
+
+```{r}
+reg <- lm(PRIX~.,data)
+sum <- summary(reg)
+sum
+```
+
+Le test de fisher indique que le modèle explique significtivement le prix.\
+**(B)**:\
+Cependant aucune des variables n'est signigicative.
+
+**(C)**:\
+Cela peut-être dû à un problème de :
+
+-   **multicolinéarité**
+-   **surajustement**
+
+**(D)**:
+
+```{r}
+vif(reg)
+```
+On peut voir qu'il y a potentiellement un problème de **multicolinéarité** avec un VIF de plus de 10 pour `PUIS` et de pratiquement 10 pour `POIDS`.  
+
+
+```{r}
+acp <- PCA(data,graph = FALSE)
+fviz_pca_var(acp,col.var = "cos2")
+corrplot::corrplot(cor(data),method = 'pie',type = 'lower',diag = FALSE)
+
+```
+On peut effectivement voir un importante corrélation entre variable, notamment entre  `LAR`et `LON`, entre `POIDS`et `LON`,...
+
+
+## 2
+La conséquence importante de ce problème en apprentissage est le <span style="color:red;">surapprentissage</span> 
+
+```{r}
+```
+
+# Préambule aux méthodes pénalisées
+```{r}
+X <- model.matrix(PRIX~.,data)[,-1]
+X <- normalize(X)
+```
+
+## Régression Ridge
+### 1
+```{r}
+ridge <- glmnet(X,Y,alpha = 0)
+plot(ridge, xvar = "lambda", label = TRUE)
+plot(ridge, xvar = "lambda", label = TRUE, log = "x")
+
+lam <- ridge$lambda %>% 
+  as.data.frame() %>%
+  mutate(penalty = ridge$a0 %>% names()) %>%
+  rename(lambda = ".")
+
+results <- ridge$beta %>% 
+  as.matrix() %>% 
+  as.data.frame() %>%
+  rownames_to_column() %>%
+  gather(penalty, coefficients, -rowname) %>%
+  left_join(lam)
+
+result_labels <- results %>%
+  group_by(rowname) %>%
+  filter(lambda == min(lambda)) %>%
+  ungroup() %>%
+  top_n(5, wt = abs(coefficients)) %>%
+  mutate(var = paste0("x", 1:5))
+
+ggplot() +
+  geom_line(data = results, aes(lambda, coefficients, group = rowname, color = rowname), show.legend = FALSE) +
+  scale_x_log10() +
+  geom_text(data = result_labels, aes(lambda, coefficients, label = var, color = rowname), nudge_x = -.08, show.legend = TRUE)
+  
+```
+
+
+### 4 
+**(a)**:  
+Les nombres sur l'axe vertical à gauche représentent les coefficients estimés pour chaque prédicteur dans le modèle de régression Ridge. Ces coefficients sont régularisés en fonction de la norme L2 (ou de $log(\lambda)$) pour différentes valeurs de $\lambda$. Ils sont obtenus en ajustant le modèle de régression Ridge avec différentes valeurs de $\lambda$.
+
+**(b)** :  
+Les nombres en haut du graphe représentent le nombre de variables incluses dans le modèle. Dans le contexte de la régression Ridge, toutes les variables sont incluses dans le modèle à chaque itération de la régularisation. C'est pourquoi ces nombres restent constants tout au long du chemin de régularisation. La régularisation Ridge n'élimine pas les variables, mais réduit simplement l'influence des variables moins importantes en les pénalisant. Ainsi, le nombre de variables reste le même à chaque étape de la régularisation.  
+
+### 5
+```{r}
+ggplot(data=NULL,aes(x = 1:100,y = ridge$lambda))+geom_point(color="darkred",size=1)
+```
+
+### 6 
+```{r}
+ridge$beta[,c(5,58)]
+```
+
+
+## Régression Lasso
+### 1
+```{r}
+Lasso <- glmnet(X,Y,alpha = 1)
+lam <- Lasso$lambda %>% 
+  as.data.frame() %>%
+  mutate(penalty = Lasso$a0 %>% names()) %>%
+  rename(lambda = ".")
+
+results <- Lasso$beta %>% 
+  as.matrix() %>% 
+  as.data.frame() %>%
+  rownames_to_column() %>%
+  gather(penalty, coefficients, -rowname) %>%
+  left_join(lam)
+
+result_labels <- results %>%
+  group_by(rowname) %>%
+  filter(lambda == min(lambda)) %>%
+  ungroup() %>%
+  top_n(5, wt = abs(coefficients)) %>%
+  mutate(var = paste0("x", 1:5))
+
+ggplot() +
+  geom_line(data = results, aes(lambda, coefficients, group = rowname, color = rowname), show.legend = FALSE) +
+  scale_x_log10() +
+  geom_text(data = result_labels, aes(lambda, coefficients, label = var, color = rowname), nudge_x = -.08, show.legend = TRUE)
+par(mfrow=c(1,2))
+plot(Lasso)
+plot(Lasso,xvar = "lambda")
+```
+
+La régularisation L1 (Lasso) peut entraîner la sélection de variables, ce qui signifie que certaines variables peuvent être exclues du modèle lorsque la force de régularisation (lambda) augmente. Les nombres en haut du graphe montrent combien de prédicteurs sont actuellement inclus dans le modèle à mesure que la valeur de lambda varie. Ces nombres peuvent donc changer à chaque étape de la régularisation en fonction de l'influence de la pénalisation L1 sur l'inclusion des prédicteurs dans le modèle.
+
+
+
+### 5 
+```{r}
+ggplot(data=NULL,aes(x = 1:length(Lasso$lambda),y = Lasso$lambda))+geom_point(color="darkred")+labs(y = expression(lambda),x = "")
+```
+
+### 6
+```{r}
+Lasso$beta[,c(5,58)]
+```
+
+### 7 
+```{r}
+ggplot(data=NULL,aes(x = factor(Lasso$df),y = Lasso$lambda))+geom_boxplot()
+```
+
+## Régression elastic-net
+### 1
+```{r}
+el <- glmnet(X,Y,alpha = 0.3)
+lam <- el$lambda %>% 
+  as.data.frame() %>%
+  mutate(penalty = el$a0 %>% names()) %>%
+  rename(lambda = ".")
+
+results <- el$beta %>% 
+  as.matrix() %>% 
+  as.data.frame() %>%
+  rownames_to_column() %>%
+  gather(penalty, coefficients, -rowname) %>%
+  left_join(lam)
+
+result_labels <- results %>%
+  group_by(rowname) %>%
+  filter(lambda == min(lambda)) %>%
+  ungroup() %>%
+  top_n(5, wt = abs(coefficients)) %>%
+  mutate(var = paste0("x", 1:5))
+
+ggplot() +
+  geom_line(data = results, aes(lambda, coefficients, group = rowname, color = rowname), show.legend = FALSE) +
+  scale_x_log10() +
+  geom_text(data = result_labels, aes(lambda, coefficients, label = var, color = rowname), nudge_x = -.08, show.legend = TRUE)
+par(mfrow=c(1,2))
+plot(el)
+plot(el,xvar = "lambda")
+```
+
+
+
+## 4
+
+## 5 
+```{r}
+ggplot(data=NULL,aes(x = 1:length(el$lambda),y = el$lambda))+geom_point(color="darkred")+labs(y= expression(lambda))
+```
+
+## 6 
+```{r}
+el$beta[,c(2,58)]
+```
+
+## 7
+```{r}
+el2 <- glmnet(X,Y,alpha = 0.7)
+f1 <- ggplot(data=NULL,aes(x = factor(el$df),y = el$lambda,fill= factor(el$df)))+geom_boxplot()+labs(x= "nb variables",y = expression(lambda))
+f2 <- ggplot(data=NULL,aes(x = factor(el2$df),y = el2$lambda,fill= factor(el2$df)))+geom_boxplot()+labs(x= "nb variables",y = expression(lambda))
+gridExtra::grid.arrange(f1,f2)
+```
+
+
+## Selection du paramètre $\lambda$
+```{r}
+foldidT=sample(rep(seq(6),length=nrow(X)))
+```
+### 1 ridge
+**(A)**:
+```{r}
+ridge <- cv.glmnet(X,Y,foldid = foldidT,alpha=0)
+```
+  
+**(B)**:  
+```{r}
+plot(ridge, main = "Ridge penalty\n\n")
+```
+
+**(C)**:  
+La première droite verticale à gauche représente le lambda optimal choisi par la validation croisée, qui minimise l'erreur de validation croisée. La deuxième droite verticale à droite représente la valeur de lambda la plus petite telle que l'erreur de validation croisée est dans un écart type (1 SE) de l'erreur minimale.  
+
+```{r}
+lambda_opt <- ridge$lambda.min
+MSE_opt <- min(ridge$cvm)
+lambda_1se <- ridge$lambda.1se
+MSE_1se <- ridge$cvm[ridge$lambda == ridge$lambda.1se]
+
+df <- data.frame(lambda = c(lambda_opt, lambda_1se),
+                             MSE = c(MSE_opt, MSE_1se))
+
+# Assigner les noms de lignes
+rownames(df) <- c("lambda_opt", "lambda_1se")
+
+kable(df)
+```
+
+
+**(D)**:  
+```{r}
+ridge1 <- glmnet(X,Y,lambda = lambda_opt,alpha=0)
+#predict(ridge, s = "lambda.min", type = "coefficients")
+c(ridge1$a0,ridge1$beta)
+```
+
+### 2 Lasso
+```{r}
+Lasso <- cv.glmnet(X,Y,alpha=1,foldid = foldidT)
+plot(Lasso, main = "Lasso penalty\n\n")
+```
+
+```{r}
+lambda_opt <- Lasso$lambda.min
+MSE_opt <- min(Lasso$cvm)
+lambda_1se <- Lasso$lambda.1se
+MSE_1se <- Lasso$cvm[Lasso$lambda == lambda_1se]
+df <- data.frame(lambda = c(lambda_opt, lambda_1se),
+                             MSE = c(MSE_opt, MSE_1se))
+
+# Assigner les noms de lignes
+rownames(df) <- c("lambda_opt", "lambda_1se")
+
+kable(df)
+```
+
+```{r}
+Lasso1 <- glmnet(X,Y,alpha=1,lambda = lambda_opt)
+c(Lasso1$a0,Lasso1$beta)
+```
+
+
+# Comparaison des performances
+```{r}
+ridge_mse <- ridge$cvm
+lasso_mse <- Lasso$cvm
+lambda_ridge <- log(ridge$lambda)
+lambda_lasso <- log(Lasso$lambda)
+plot_data_ridge <- data.frame(lambda = lambda_ridge, ridge_mse = ridge_mse)
+
+plot_data_lasso <- data.frame(lambda = lambda_lasso, lasso_mse = lasso_mse)
+# Tracer les courbes d'erreur de validation croisée pour Ridge et Lasso
+ggplot() +
+  geom_line(data = plot_data_ridge, aes(x = lambda, y = ridge_mse, color = "Ridge")) +
+  geom_line(data = plot_data_lasso, aes(x = lambda, y = lasso_mse, color = "Lasso")) +
+  scale_color_manual(values = c("Ridge" = "steelblue", "Lasso" = "darkred")) +
+  labs(title = "Evolution de l'erreur de validation croisée",
+       x = expression(log(lambda)),
+       y = "MSE") +
+  theme_minimal()
+```
+
+
+
+
+```{r}
+alphas <- seq(0, 1, by = 0.2)
+
+# Initialiser une liste pour stocker les résultats
+elasticnet_results <- list()
+
+# Effectuer la validation croisée pour chaque valeur de alpha
+for (alpha in alphas) {
+  elasticnet_cv <- cv.glmnet(X, Y, alpha = alpha, foldid = foldidT)
+  elasticnet_results[[as.character(alpha)]] <- elasticnet_cv
+}
+
+ggplot() +
+  lapply(elasticnet_results, function(cv_result) {
+    lambda <- log(cv_result$lambda)
+    mse <- cv_result$cvm
+    geom_line(data = data.frame(lambda = lambda, mse = mse), aes(x = lambda, y = mse))
+  }) +
+  labs(title = "Evolution de l'erreur de validation croisée pour Elastic Net",
+       x = expression(log(lambda)),
+       y = "MSE") +
+  theme_minimal()
+    ```
+
+
+```{r}
+ridge_mse <- ridge$cvm
+lasso_mse <- Lasso$cvm
+
+lambda_ridge <- log(ridge$lambda)
+lambda_lasso <- log(Lasso$lambda)
+plot_data_ridge <- data.frame(lambda = lambda_ridge, ridge_mse = ridge_mse)
+
+plot_data_lasso <- data.frame(lambda = lambda_lasso, lasso_mse = lasso_mse)
+# Tracer les courbes d'erreur de validation croisée pour Ridge et Lasso
+ggplot() +
+  geom_line(data = plot_data_ridge, aes(x = lambda, y = ridge_mse, color = "Ridge")) +
+  geom_line(data = plot_data_lasso, aes(x = lambda, y = lasso_mse, color = "Lasso")) +
+  scale_color_manual(values = c("Ridge" = "steelblue", "Lasso" = "darkred")) +
+  labs(title = "Evolution de l'erreur de validation croisée",
+       x = expression(log(lambda)),
+       y = "MSE") +
+  theme_minimal()
+```
+
+
+
+

@@ -1,0 +1,266 @@
+---
+title: "TP2"
+format: html
+---
+
+```{r}
+library(FactoMineR)
+library(factoextra)
+library(e1071)
+require(ggplot2)
+require(mclust)
+```
+
+
+# Exercice 1
+
+## 1)
+
+```{r}
+load("spectra.Rdata")
+
+```
+
+## 2)
+
+```{r}
+plot(X[1,],type="l", ylim = c(min(X),max(X)),col=y[1])
+for(i in 2:nrow(X)){
+  lines(X[i,],col=y[i])
+}
+data <- data.frame(X = t(X),Y=1:100)
+fig=ggplot(data,aes(y= X.1,x=Y))+geom_line(color=y[1])
+fig
+for(i in 2:215){
+  fig=fig+geom_line(aes(y=!!sym(paste0("X.",i)),x=Y),color=y[i])
+}
+fig
+```
+## 3)
+
+```{r}
+d <- dist(X)
+```
+
+## 4)
+
+```{r}
+CMDS = cmdscale(d, k = 2)
+plot(CMDS, col = y)
+ggplot(data.frame(CMDS,cat=y),aes(x=X1,y=X2,color=factor(cat)))+geom_point()
+```
+
+## 5)
+
+```{r}
+d <- as.dist(1-cor(t(X),method = "pearson"))
+CMDS <- cmdscale(d)
+plot(CMDS, col = y)
+ggplot(data.frame(CMDS,cat=y),aes(x=X1,y=X2,color=factor(cat)))+geom_point()
+
+```
+
+## 6)
+```{r}
+d <- as.matrix(d)
+ind1 = which(y ==1) 
+ind2 = which(y==2)
+d1 <- as.matrix(dist(X))
+boxplot(list("1-1"= d1[ind1,ind1],"2-2" = d1[ind2,ind2],"1-2" = d1[ind1,ind2]), outline = F,main = "distance euclidienne")
+data.frame(d1)
+boxplot(list("1-1"= d[ind1,ind1],"2-2" = d[ind2,ind2],"1-2" = d[ind1,ind2]), outline = F,main = "dissmilarité correlation")
+
+
+```
+
+
+## 7
+```{r}
+par(mfrow=c(1,2))
+plot(cmdscale(d1), col = y)
+acp <- PCA(X,graph =  F)
+fviz_pca_ind(acp,geom = "point",col.ind = factor(y))
+```
+
+
+
+# Exercice 4
+## charger  le jeu de données
+```{r}
+load("exo-4.Rdata")
+head(X)
+```
+
+```{r}
+source("utils.R")
+# fit model
+svm.model = svm(X, type='one-classification', nu=0.1, kernel="radial")
+# make predictions
+y.pred = predict(svm.model, X)
+# show outliers
+plot(X[,1], X[,2], col = factor(y.pred), xlab = "x1", ylab = "x2")
+# show decision boundary
+svm_pred = function(x){
+return( predict(svm.model, x))
+}
+plot_with_contours(X, svm_pred, y = factor(y.pred))
+```
+## 4
+```{r}
+ svm_pred = function(x){
+  return( predict(svm.model, x))
+  }
+for(i in c(0.01, 0.05, 0.1, 0.25)){
+  # fit model
+  svm.model = svm(X, type='one-classification', nu=i, kernel="radial")
+  # make predictions
+  y.pred = predict(svm.model, X)
+  # show outliers
+  # show decision boundary
+  plot_with_contours(X, svm_pred, y = factor(y.pred))
+  cat("** Nombre de points détéctés comme anomalie: pour mu = ",i," :",(210-sum(y.pred))/210*100," %***\n")
+}
+```
+## 5
+```{r}
+
+for(gamma in seq(0,1,0.1)){
+    svm.model = svm(X, type='one-classification', nu=0.1, kernel="radial",gamma=gamma)
+    # make predictions
+    y.pred = predict(svm.model, X)
+    # show outliers
+    # show decision boundary
+    plot_with_contours(X, svm_pred, y = factor(y.pred))
+    title(paste(""))
+}
+```
+
+## 6
+
+
+# Exercice 5
+```{r}
+require(mclust)
+svm.model = svm(X, type='one-classification', nu=0.1, kernel="radial",gamma=0.7)
+    # make predictions
+    y.pred = predict(svm.model, X)
+    # show outliers
+    # show decision boundary
+    plot_with_contours(X, svm_pred, y = factor(y.pred))
+mv = function(X){
+  p = length(mu)
+  xt =t(X)
+  return(1/( sqrt((2*pi)^p*det(S)) )*exp(-0.5 * t(xt-mu) %*% solve(S) %*% (xt-mu)))
+}
+fitmvn=mvn(modelName = "Ellipsoidal",X)
+mu=fitmvn$parameters$mean
+S = fitmvn$parameters$variance$Sigma
+plot_with_contours(X, mv, y = factor(y.pred))
+```
+
+# Exercice 2
+```{r}
+load("digits.Rdata")
+
+```
+
+## petit jeu de donnée X
+```{r}
+clust = hclust(dist(X),method = "ward.D2")
+km.clust <- kmeans(X, 10)$cluster
+fviz_dend(clust,repel = TRUE,k=10,cex = 0.5,
+ color_labels_by_k = FALSE, rect = TRUE,label_cols =  km.clust[clust$order])+ labs(title =  "Clust avec ward.D2")
+
+  
+```
+
+```{r}
+cut <- cutree(clust,k=10)
+table(cut,y)
+require(pheatmap)
+pheatmap(table(cut,y))
+```
+
+## 3
+```{r}
+clust = hclust(dist(X.large))
+fviz_dend(clust,repel = TRUE,k=10,cex = 0.5,
+ color_labels_by_k = FALSE, rect = TRUE)+ labs(title =  "Clust avec ward.D2")
+```
+
+### barplot
+```{r}
+require(plotly)
+names(cutree(clust,k=10)[1])
+data = data.frame(X= names(cutree(clust,k=10)),group=cutree(clust,k=10),valeur=y.large)
+barplot = ggplot(data,aes(x = group,fill = factor(y.large)))+geom_bar()
+barplot
+```
+
+
+# Exercice 3
+```{r}
+require(NMF)
+load("nci_small.Rdata")
+```
+
+## 3
+```{r}
+hclust <- hclust(dist(X))
+fviz_dend(hclust,repel = TRUE,cex = 0.5,
+ color_labels_by_k = FALSE, rect = TRUE)+ labs(title =  "Densdogramme")
+```
+
+```{r}
+aheatmap(X,annRow = y)
+aheatmap(X,annRow = y,Colv = NA
+)
+```
+
+
+
+
+# TP2 Compléments
+# Exercice 1
+```{r}
+load("data-kmeans.Rdata")
+```
+
+```{r}
+require(flexclust)
+dist2()
+y
+```
+
+
+
+
+# Exercice 2
+```{r}
+require(mclust)
+load("data-mclust.Rdata")
+```
+
+```{r}
+fit = Mclust(X)
+fit$BIC
+```
+## affichage 
+```{r}
+plot(fit$BIC)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
